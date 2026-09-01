@@ -4,8 +4,8 @@
   --bg: #060e1a;
   --panel: rgba(15, 27, 46, 0.90);
   --panel-2: rgba(9, 18, 33, 0.88);
-  --border: rgba(122, 182, 238, 0.11);
-  --border-strong: rgba(132, 192, 244, 0.24);
+  --border: rgba(122, 182, 238, 0.13);
+  --border-strong: rgba(132, 192, 244, 0.22);
   --ink: #eaf3fb;
   --ink2: #aec3d8;
   --muted: #7e95ad;
@@ -100,29 +100,28 @@ body.alarm::after {
   gap: 16px; padding: 10px 16px;
   background: linear-gradient(180deg, rgba(16, 29, 50, 0.94), rgba(11, 20, 36, 0.94));
   border-bottom: 1px solid var(--border-strong);
-  box-shadow: 0 1px 0 rgba(89, 216, 255, 0.07), 0 10px 26px rgba(2, 8, 18, 0.35);
 }
 .brand { display: flex; align-items: center; gap: 11px; min-width: 340px; }
 .brand-mark {
-  width: 36px; height: 36px; border-radius: 9px;
-  background: linear-gradient(135deg, #1c5cab 0%, #3987e5 55%, #59d8ff 130%);
+  width: 34px; height: 34px; border-radius: 4px;
+  background: linear-gradient(160deg, #1c4675 0%, #153050 100%);
+  border: 1px solid var(--border-strong);
   display: grid; place-items: center;
-  font-weight: 800; font-size: 13px; letter-spacing: 0.03em; color: #fff;
-  box-shadow: 0 0 16px rgba(89, 216, 255, 0.22);
+  font-weight: 700; font-size: 12px; letter-spacing: 0.03em; color: #cfe4f6;
 }
 .brand-name { font-weight: 700; letter-spacing: 0.14em; font-size: 15px; }
 .brand-sub { color: var(--muted); font-size: 11px; letter-spacing: 0.02em; }
 
 .annunciator {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 22px; border-radius: 999px;
+  padding: 8px 22px; border-radius: 3px;
   font-weight: 700; font-size: 14px; letter-spacing: 0.1em;
   border: 1px solid var(--border-strong);
   background: var(--panel-2);
 }
 .annunciator .lamp {
-  width: 11px; height: 11px; border-radius: 50%;
-  background: var(--good); box-shadow: 0 0 10px var(--good);
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--good); box-shadow: 0 0 6px var(--good);
 }
 .annunciator.state-normal   { color: #7fd68a; }
 .annunciator.state-watch    { color: var(--warn); }
@@ -132,7 +131,7 @@ body.alarm::after {
   background: rgba(208, 59, 59, 0.12);
 }
 .annunciator.state-leak .lamp, .annunciator.state-isolated .lamp {
-  background: var(--crit); box-shadow: 0 0 12px var(--crit);
+  background: var(--crit); box-shadow: 0 0 8px var(--crit);
 }
 .annunciator.state-leak { animation: annBlink 0.9s step-end infinite; }
 @keyframes annBlink { 50% { opacity: 0.55; } }
@@ -143,7 +142,7 @@ body.alarm::after {
 .clock { font-family: var(--mono); font-size: 19px; font-variant-numeric: tabular-nums; }
 .icon-btn {
   background: var(--panel); color: var(--ink2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 7px 10px; cursor: pointer; font-size: 14px;
+  border-radius: 4px; padding: 7px 10px; cursor: pointer; font-size: 14px;
 }
 .icon-btn:hover { border-color: var(--border-strong); }
 
@@ -156,8 +155,8 @@ body.alarm::after {
 }
 .step {
   display: flex; align-items: center; gap: 7px;
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em;
-  color: var(--muted); padding: 4px 10px; border-radius: 6px;
+  font-size: 10.5px; font-weight: 650; letter-spacing: 0.08em;
+  color: var(--muted); padding: 4px 10px; border-radius: 3px;
 }
 .step-dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -175,7 +174,7 @@ body.alarm::after {
 #transport .sep { width: 1px; height: 20px; background: var(--border-strong); }
 .ctl {
   background: var(--panel); color: var(--ink2);
-  border: 1px solid var(--border-strong); border-radius: 7px;
+  border: 1px solid var(--border-strong); border-radius: 4px;
   padding: 6px 12px; cursor: pointer; font-size: 12px; font-weight: 600;
 }
 .ctl:hover { color: var(--ink); }
@@ -184,9 +183,9 @@ body.alarm::after {
 .ctl.running { background: #3a2a10; border-color: var(--warn); color: var(--warn); }
 #dataset-select {
   background: var(--panel); color: var(--ink); border: 1px solid var(--border-strong);
-  border-radius: 7px; padding: 6px 8px; font-size: 12px; max-width: 250px;
+  border-radius: 4px; padding: 6px 8px; font-size: 12px; max-width: 250px;
 }
-.speed-group { display: flex; border: 1px solid var(--border-strong); border-radius: 7px; overflow: hidden; }
+.speed-group { display: flex; border: 1px solid var(--border-strong); border-radius: 4px; overflow: hidden; }
 .speed-group button {
   background: transparent; border: none; color: var(--muted);
   padding: 6px 9px; font-size: 11px; font-weight: 700; cursor: pointer;
@@ -197,25 +196,22 @@ body.alarm::after {
 /* ---------- layout ---------- */
 main {
   display: grid; grid-template-columns: minmax(0, 1fr) 390px;
-  gap: 12px; padding: 12px 16px 20px;
+  gap: 14px; padding: 14px 18px 24px;
   align-items: start;
 }
-.col-left, .col-right { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.col-left, .col-right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
 .panel {
-  background: linear-gradient(180deg, rgba(18, 32, 54, 0.90) 0%,
-                              rgba(10, 19, 34, 0.92) 100%);
+  background: rgba(13, 24, 41, 0.92);
   border: 1px solid var(--border);
-  border-radius: 12px; overflow: hidden;
-  box-shadow: 0 14px 34px rgba(2, 8, 18, 0.45),
-              inset 0 1px 0 rgba(160, 215, 255, 0.055);
+  border-radius: 4px; overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(160, 215, 255, 0.05);
 }
 .panel-head {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  padding: 9px 13px;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.15em; color: #9db9d4;
+  padding: 9px 16px 8px;
+  font-size: 11px; font-weight: 650; letter-spacing: 0.02em; color: var(--ink2);
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(90deg, rgba(89, 216, 255, 0.05), transparent 55%);
 }
 .panel-head .sw { margin-right: 6px; }
 .panel-side { color: var(--muted); font-weight: 500; letter-spacing: 0.04em; font-family: var(--mono); font-size: 10px; }
@@ -224,28 +220,61 @@ main {
 .sw-iso { background: repeating-linear-gradient(45deg, #d03b3b, #d03b3b 2px, #4a1616 2px, #4a1616 4px); }
 
 /* ---------- 3D viewport ---------- */
-#viewport { height: 380px; position: relative; overflow: hidden;
-  background: radial-gradient(135% 95% at 50% -12%, #17385a 0%, #0d2440 34%,
-                              #071527 66%, #040c17 100%); }
-#viewport canvas { display: block; will-change: transform; }
-#viewport::before {           /* faint volumetric rays over the twin */
-  content: ""; position: absolute; inset: -8% -4%; pointer-events: none; z-index: 2;
+#viewport { height: clamp(400px, 46vh, 500px); position: relative; overflow: hidden;
+  /* deep-ocean cavern backdrop (renderer is alpha — this IS the scene bg):
+     bright surface opening upper-centre, near-black rocky masses framing
+     the corners, deep navy water column between. If web/ocean-bg.jpg
+     exists it is used as the photographic base layer automatically. */
   background:
-    linear-gradient(99deg, transparent 34%, rgba(150, 220, 255, 0.07) 41%, transparent 49%),
-    linear-gradient(94deg, transparent 52%, rgba(150, 220, 255, 0.09) 58%, transparent 66%),
-    linear-gradient(106deg, transparent 68%, rgba(130, 205, 250, 0.06) 74%, transparent 82%);
-  mask-image: radial-gradient(115% 80% at 50% -8%, #000 0%, transparent 68%);
-  -webkit-mask-image: radial-gradient(115% 80% at 50% -8%, #000 0%, transparent 68%);
-  filter: blur(9px);
-  mix-blend-mode: screen;
-  transform-origin: 50% -8%;
-  animation: raysSway 28s ease-in-out infinite alternate;
+    radial-gradient(58% 52% at -4% 112%, rgba(1, 3, 6, 0.92) 0%, transparent 62%),
+    radial-gradient(52% 48% at 104% 116%, rgba(1, 3, 6, 0.88) 0%, transparent 62%),
+    radial-gradient(46% 42% at -6% -12%, rgba(1, 4, 8, 0.85) 0%, transparent 64%),
+    radial-gradient(40% 36% at 108% -10%, rgba(1, 4, 8, 0.75) 0%, transparent 64%),
+    radial-gradient(34% 22% at 58% -6%, rgba(170, 225, 255, 0.30) 0%,
+                    rgba(110, 180, 235, 0.12) 45%, transparent 75%),
+    url("/static/ocean-bg.jpg") center / cover no-repeat,
+    radial-gradient(140% 100% at 55% -15%, #1d4c7c 0%, #123457 24%,
+                    #0b2440 46%, #061323 70%, #02070d 100%);
 }
-#viewport::after {            /* depth vignette + seabed falloff */
+#viewport canvas { display: block; will-change: transform; }
+#viewport::before {           /* converging god-rays from the surface opening */
+  content: ""; position: absolute; inset: -10% -4%; pointer-events: none; z-index: 2;
+  background:
+    conic-gradient(from 158deg at 58% -8%,
+      transparent 0deg,  rgba(170, 225, 255, 0.15) 3deg,  transparent 7deg,
+      transparent 11deg, rgba(160, 220, 255, 0.11) 14deg, transparent 18deg,
+      transparent 23deg, rgba(175, 230, 255, 0.17) 26deg, transparent 31deg,
+      transparent 36deg, rgba(150, 215, 255, 0.10) 39deg, transparent 43deg,
+      transparent 47deg, rgba(165, 225, 255, 0.13) 50deg, transparent 54deg),
+    radial-gradient(30% 20% at 58% -6%, rgba(200, 240, 255, 0.22) 0%, transparent 70%);
+  mask-image: radial-gradient(120% 95% at 58% -8%, #000 0%,
+                              rgba(0, 0, 0, 0.5) 45%, transparent 78%);
+  -webkit-mask-image: radial-gradient(120% 95% at 58% -8%, #000 0%,
+                              rgba(0, 0, 0, 0.5) 45%, transparent 78%);
+  filter: blur(6px);
+  mix-blend-mode: screen;
+  transform-origin: 58% -8%;
+  animation: godraySway 18s ease-in-out infinite alternate,
+             schematicBreathe 7s ease-in-out infinite alternate;
+}
+@keyframes godraySway {
+  from { transform: rotate(-1.6deg); }
+  to   { transform: rotate(1.6deg); }
+}
+#viewport::after {            /* depth vignette + drifting suspended particles */
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 2;
   background:
-    linear-gradient(180deg, transparent 62%, rgba(3, 8, 16, 0.42) 100%),
-    radial-gradient(120% 105% at 50% 42%, transparent 58%, rgba(3, 8, 16, 0.38) 100%);
+    linear-gradient(180deg, transparent 62%, rgba(3, 8, 16, 0.45) 100%),
+    radial-gradient(120% 105% at 50% 42%, transparent 58%, rgba(3, 8, 16, 0.4) 100%),
+    radial-gradient(rgba(190, 228, 255, 0.26) 1.2px, transparent 1.7px),
+    radial-gradient(rgba(150, 205, 245, 0.16) 1px, transparent 1.4px),
+    radial-gradient(rgba(200, 235, 255, 0.20) 0.8px, transparent 1.2px);
+  background-size: 100% 100%, 100% 100%, 230px 210px, 150px 170px, 105px 125px;
+  background-position: 0 0, 0 0, 20px 30px, 80px 100px, 45px 55px;
+  animation: viewportDrift 52s linear infinite;
+}
+@keyframes viewportDrift {
+  to { background-position: 0 0, 0 0, 62px -600px, 44px -400px, 72px -570px; }
 }
 #twin-legend {
   display: flex; gap: 14px; padding: 7px 12px; flex-wrap: wrap;
@@ -254,8 +283,8 @@ main {
 }
 #twin-legend .sw { margin-right: 5px; }
 
-/* ---------- schematic ---------- */
-#schematic { padding: 6px 10px 10px; position: relative; }
+/* ---------- schematic (deep-ocean ambience lives at the end of this file) */
+#schematic { padding: 10px 12px 12px; position: relative; }
 #schematic svg { width: 100%; height: auto; display: block; }
 
 /* ---------- charts ---------- */
@@ -265,7 +294,7 @@ main {
 .chart-tip {
   position: absolute; pointer-events: none; display: none;
   background: #0d1523f2; border: 1px solid var(--border-strong);
-  border-radius: 7px; padding: 7px 10px; font-size: 11px; z-index: 5;
+  border-radius: 4px; padding: 7px 10px; font-size: 11px; z-index: 5;
   font-family: var(--mono); white-space: nowrap; color: var(--ink2);
   box-shadow: 0 6px 18px rgba(0,0,0,.5);
 }
@@ -285,8 +314,8 @@ main {
 .kpi-foot span:first-child { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 
 .tier-chip {
-  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
-  padding: 2px 9px; border-radius: 999px; color: #fff; background: var(--grid);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  padding: 2px 8px; border-radius: 2px; color: #fff; background: var(--grid);
 }
 .tier-GREEN  { background: var(--good); }
 .tier-YELLOW { background: var(--warn); color: #201600; }
@@ -314,7 +343,7 @@ main {
 .npw-dual.located .npw-x-val {
   background: var(--grad-ice);
   -webkit-background-clip: text; background-clip: text; color: transparent;
-  filter: drop-shadow(0 0 13px rgba(89, 216, 255, 0.30));
+  filter: drop-shadow(0 0 10px rgba(89, 216, 255, 0.22));
 }
 @supports not (background-clip: text) {
   .npw-dual.located .npw-x-val { color: #bfe9ff; background: none;
@@ -334,9 +363,9 @@ main {
 .npw-eq { padding: 8px 14px 4px; color: var(--muted); font-size: 11px; text-align: center; min-height: 16px; }
 .npw-eng { border-top: 1px solid var(--border); margin-top: 4px; }
 .npw-eng summary {
-  cursor: pointer; padding: 7px 14px; font-size: 10px; font-weight: 700;
-  letter-spacing: 0.12em; color: var(--muted); user-select: none;
-  text-transform: uppercase; list-style-position: inside;
+  cursor: pointer; padding: 7px 16px; font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.02em; color: var(--muted); user-select: none;
+  list-style-position: inside;
 }
 .npw-eng summary:hover { color: var(--ink2); }
 .npw-eng-body { display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
@@ -349,7 +378,7 @@ main {
 .leak-card {
   position: absolute; z-index: 6; pointer-events: none;
   background: #140c12f0; border: 1px solid rgba(208, 59, 59, 0.55);
-  border-radius: 8px; padding: 8px 11px; font-size: 11px; line-height: 1.55;
+  border-radius: 4px; padding: 8px 11px; font-size: 11px; line-height: 1.55;
   color: var(--ink2); box-shadow: 0 8px 24px rgba(0,0,0,.55);
   white-space: nowrap; transform: translate(-50%, -100%);
 }
@@ -402,16 +431,16 @@ main {
 .log-row.ev-info .log-msg { color: var(--muted); }
 
 .report-btn {
-  border: 1px solid var(--border-strong); border-radius: 10px;
+  border: 1px solid var(--border-strong); border-radius: 4px;
   background: linear-gradient(180deg, #16233a, #101a2c); color: var(--ink);
-  font-weight: 700; letter-spacing: 0.1em; font-size: 12px;
-  padding: 12px; cursor: pointer;
+  font-weight: 650; letter-spacing: 0.03em; font-size: 12px;
+  padding: 11px; cursor: pointer;
 }
 .report-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .report-btn:not(:disabled):hover { border-color: #2a78d6; }
 .report-btn.ready { border-color: var(--crit); color: #ffd9d9;
   animation: reportPulse 1.6s ease-in-out infinite; }
-@keyframes reportPulse { 50% { box-shadow: 0 0 14px rgba(208,59,59,.45); } }
+@keyframes reportPulse { 50% { box-shadow: 0 0 8px rgba(208,59,59,.3); } }
 .report-alt { text-align: center; font-size: 10px; color: var(--muted);
   text-decoration: none; margin-top: -6px; }
 .report-alt:hover { color: var(--ink2); text-decoration: underline; }
@@ -422,7 +451,7 @@ main {
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;
   margin-bottom: 14px; }
 .hist-tile { background: var(--panel-2); border: 1px solid var(--border);
-  border-radius: 9px; padding: 9px 12px; }
+  border-radius: 4px; padding: 9px 12px; }
 .hist-tile label { display: block; font-size: 9px; letter-spacing: 0.12em;
   color: var(--muted); font-weight: 700; }
 .hist-tile b { font-family: var(--mono); font-size: 21px; font-weight: 600; }
@@ -430,7 +459,7 @@ main {
 .hist-trends { display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
   margin-bottom: 14px; }
 .hist-trend { background: var(--panel-2); border: 1px solid var(--border);
-  border-radius: 9px; padding: 8px 10px 6px; }
+  border-radius: 4px; padding: 8px 10px 6px; }
 .hist-trend h4 { margin: 0 0 4px; font-size: 9.5px; letter-spacing: 0.12em;
   color: var(--ink2); font-weight: 700; }
 .hist-trend svg { width: 100%; height: auto; display: block; }
@@ -449,8 +478,8 @@ main {
 #toast {
   position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
   background: #0d1523f2; border: 1px solid var(--border-strong); color: var(--ink);
-  border-radius: 9px; padding: 10px 18px; font-size: 12.5px; display: none; z-index: 60;
-  box-shadow: 0 8px 30px rgba(0,0,0,.55); line-height: 1.6; text-align: left;
+  border-radius: 5px; padding: 10px 18px; font-size: 12.5px; display: none; z-index: 60;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45); line-height: 1.6; text-align: left;
   max-width: 560px;
 }
 
@@ -462,10 +491,10 @@ main {
 }
 #batch-modal[hidden], #history-modal[hidden], #mode-modal[hidden] { display: none; }
 .batch-card {
-  background: var(--panel); border: 1px solid var(--border-strong);
-  border-radius: 12px; width: min(1100px, 94vw); max-height: 84vh;
+  background: #0e1a2d; border: 1px solid var(--border-strong);
+  border-radius: 6px; width: min(1100px, 94vw); max-height: 84vh;
   display: flex; flex-direction: column; overflow: hidden;
-  box-shadow: 0 18px 60px rgba(0,0,0,.6);
+  box-shadow: 0 14px 44px rgba(0,0,0,.5);
 }
 .batch-head {
   display: flex; justify-content: space-between; align-items: center;
@@ -496,8 +525,8 @@ main {
 /* ---------- operating-mode chip + modal ---------- */
 .mode-chip {
   background: var(--panel); border: 1px solid var(--border-strong);
-  color: var(--ink2); border-radius: 999px; padding: 7px 14px;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer;
+  color: var(--ink2); border-radius: 4px; padding: 7px 13px;
+  font-size: 11px; font-weight: 650; letter-spacing: 0.03em; cursor: pointer;
   white-space: nowrap;
 }
 .mode-chip:hover { color: var(--ink); border-color: #2a78d6; }
@@ -506,7 +535,7 @@ main {
 .mode-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
 .mode-option {
   display: flex; gap: 12px; align-items: flex-start; cursor: pointer;
-  border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px;
   background: var(--panel-2);
 }
 .mode-option:has(input:checked) { border-color: #2a78d6; }
@@ -518,7 +547,7 @@ main {
   letter-spacing: 0.08em; margin-bottom: 4px; }
 .mode-inputs input {
   width: 100%; background: var(--panel); border: 1px solid var(--border-strong);
-  color: var(--ink); border-radius: 7px; padding: 7px 9px;
+  color: var(--ink); border-radius: 4px; padding: 7px 9px;
   font-family: var(--mono); font-size: 13px; box-sizing: border-box;
 }
 .mode-inputs input:disabled { opacity: 0.4; }
@@ -529,16 +558,17 @@ main {
 /* ---------- adaptive signal quality ---------- */
 .asq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; }
 .asq-card {
-  background: var(--panel-2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 10px 14px 12px;
+  background: transparent; border: 0;
+  border-radius: 0; padding: 12px 18px 14px;
 }
+.asq-card + .asq-card { border-left: 1px solid var(--border); }
 .asq-head { display: flex; justify-content: space-between; align-items: center;
-  font-size: 11px; font-weight: 800; letter-spacing: 0.12em; color: var(--ink2); }
+  font-size: 11px; font-weight: 650; letter-spacing: 0.03em; color: var(--ink2); }
 .asq-head .sw { margin-right: 6px; }
 .asq-state {
-  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
-  padding: 3px 10px; border-radius: 999px;
-  background: rgba(12, 163, 12, 0.15); color: #7fd68a;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  padding: 3px 9px; border-radius: 3px;
+  background: rgba(12, 163, 12, 0.13); color: #7fd68a;
   border: 1px solid rgba(12, 163, 12, 0.4);
 }
 .asq-state.candidate { background: rgba(250,178,25,.13); color: var(--warn);
@@ -563,20 +593,20 @@ main {
 
 /* ---------- collapsible engineering detail ---------- */
 .eng-detail summary {
-  cursor: pointer; padding: 10px 14px; font-size: 10px; font-weight: 700;
-  letter-spacing: 0.14em; color: var(--ink2); user-select: none;
+  cursor: pointer; padding: 10px 16px; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.02em; color: var(--ink2); user-select: none;
   list-style-position: inside;
 }
 .eng-detail summary:hover { color: var(--ink); }
 .eng-detail-body { padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 12px; }
 .eng-detail .chart-panel {
-  background: var(--panel-2); border: 1px solid var(--border);
-  border-radius: 10px; overflow: hidden;
+  background: rgba(9, 18, 33, 0.55); border: 1px solid var(--border);
+  border-radius: 3px; overflow: hidden;
 }
-.eng-ai { background: var(--panel-2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 10px 14px 12px; }
+.eng-ai { background: rgba(9, 18, 33, 0.55); border: 1px solid var(--border);
+  border-radius: 3px; padding: 10px 16px 12px; }
 .eng-ai-head { display: flex; justify-content: space-between; align-items: center;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: var(--ink2);
+  font-size: 10.5px; font-weight: 650; letter-spacing: 0.02em; color: var(--ink2);
   margin-bottom: 6px; }
 
 /* ---------- AI corroboration strip (secondary, text-first) ---------- */
@@ -594,7 +624,8 @@ main {
 
 /* ---------- motion safety ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .sea-haze::before, .sea-rays::before, .sea-particles, #viewport::before {
+  .sea-haze::before, .sea-rays::before, .sea-particles, #viewport::before,
+  #viewport::after, #schematic::after, #schematic::before {
     animation: none !important;
   }
   .annunciator.state-leak, .step.active .step-dot,
@@ -607,4 +638,127 @@ main {
   main { grid-template-columns: 1fr; }
   .charts-row { grid-template-columns: 1fr; }
   .asq-grid { grid-template-columns: 1fr; }
+  .asq-card + .asq-card { border-left: 0; border-top: 1px solid var(--border); }
+}
+
+/* ================================================================
+   CSS-only visual polish — overflow guards, typography, and the
+   deep-ocean ambience for the 2D pipeline schematic.
+   Purely presentational: no selectors, IDs or markup were changed.
+   ================================================================ */
+
+/* --- overflow guards: engineering values never wrap or split from units --- */
+.clock, .step-t, .tier-chip, .npw-cell b, .npw-x-val, .asq-big, .asq-row b,
+.npw-eng-body b, .fc-eta, .fc-head .mono, .log-t, .ctl, .mode-chip,
+#dataset-select, .chart-tip, .leak-card, .asq-state { white-space: nowrap; }
+.npw-cell, .asq-card, .asq-big, .fc-block, .npw-eng-body > div,
+.col-left, .col-right { min-width: 0; }
+.panel-side { flex: 0 1 auto; min-width: 0; text-align: right;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.panel-head > span:first-child, .schematic-head > span:first-child,
+.batch-head > span:first-child { white-space: nowrap; }
+.npw-eq, .npw-seg, .batch-note, .ai-note, .mode-desc { overflow-wrap: break-word; }
+.npw-x-from { white-space: nowrap; width: auto; min-width: 96px; }
+
+/* responsive numeric sizing keeps big values on one line at 1280–1920 px */
+.npw-x-val { font-weight: 650; font-size: clamp(22px, 2vw, 30px);
+  min-width: 0; }
+.asq-big b { font-size: clamp(19px, 1.6vw, 24px); }
+.npw-cell b { font-size: clamp(16px, 1.35vw, 19px); }
+.clock { font-size: clamp(16px, 1.35vw, 19px); }
+.asq-row b { font-size: clamp(12px, 1vw, 13.5px); }
+/* severity is a word (CRITICAL/MAJOR/LOW), not a number — size it to fit
+   its narrow cell instead of the numeric scale */
+#npw-sev { font-size: clamp(12.5px, 0.95vw, 14px); letter-spacing: 0.02em; }
+/* below ~1360px the four small signal-quality stats read as a 2×2 grid so
+   values like “−1.50 bar/s” keep one line without shrinking further */
+@media (max-width: 1360px) {
+  .asq-row { grid-template-columns: repeat(2, 1fr); row-gap: 7px; }
+  .asq-big b { font-size: 18px; }
+  .asq-big .tier-chip { font-size: 9px; padding: 2px 6px; margin-left: 5px; }
+}
+
+/* --- typography: calmer tracking, clearer hierarchy (content untouched) --- */
+.step { letter-spacing: 0.07em; }
+.brand-name { letter-spacing: 0.10em; }
+.npw-x-label, .npw-cell label { letter-spacing: 0.05em; }
+.asq-big label, .asq-row label { letter-spacing: 0.05em; }
+.clock-label { letter-spacing: 0.10em; }
+.batch-head { letter-spacing: 0.02em; font-weight: 650; }
+.log-msg, .batch-note, .mode-desc { line-height: 1.5; }
+
+/* --- spacing polish --- */
+.asq-grid { gap: 0; padding: 0; }
+#npw-x-box { padding: 13px 16px 6px; }
+.npw-cell { padding: 9px 14px; }
+#forecast-body { padding: 11px 16px 13px; }
+.eng-detail-body { padding: 4px 14px 14px; }
+.npw-eq { padding-left: 16px; padding-right: 16px; }
+.log-row { padding-left: 16px; padding-right: 16px; }
+#event-log { padding-bottom: 6px; }
+
+/* --- deep-ocean ambience — 2D pipeline schematic ONLY ------------------ */
+/* vertical depth: lighter desaturated blue up top, near-black navy below */
+#schematic {
+  isolation: isolate;
+  background: linear-gradient(180deg, #174171 0%, #0e2c50 32%,
+                              #081d36 66%, #040c17 100%);
+  box-shadow: inset 0 1px 0 rgba(150, 205, 250, 0.14);
+}
+/* soft light from above, swaying haze pockets and two faint moving
+   light shafts — animated slowly, like refracted water light */
+#schematic::before {
+  content: ""; position: absolute; inset: -2% 0 0; z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(95% 85% at 50% -22%, rgba(140, 200, 250, 0.22) 0%,
+                    rgba(90, 155, 215, 0.09) 45%, transparent 74%),
+    linear-gradient(104deg, transparent 38%, rgba(160, 215, 255, 0.055) 45%,
+                    transparent 53%),
+    linear-gradient(96deg, transparent 60%, rgba(150, 210, 255, 0.045) 66%,
+                    transparent 73%),
+    radial-gradient(42% 32% at 25% 64%, rgba(70, 140, 205, 0.08) 0%, transparent 70%),
+    radial-gradient(36% 26% at 75% 42%, rgba(60, 125, 190, 0.065) 0%, transparent 70%);
+  background-size: 100% 100%, 220% 100%, 220% 100%, 160% 130%, 160% 130%;
+  background-position: 0 0, 18% 0, 64% 0, 12% 30%, 78% 55%;
+  animation: schematicLight 26s ease-in-out infinite alternate,
+             schematicBreathe 9s ease-in-out infinite alternate;
+}
+@keyframes schematicLight {
+  to { background-position: 0 0, 34% 0, 48% 0, 26% 42%, 64% 44%; }
+}
+@keyframes schematicBreathe {
+  from { opacity: 0.82; }
+  to   { opacity: 1; }
+}
+/* suspended particles at three depths, rising at different speeds with a
+   slight diagonal sway — sparse, tiny, decorative only */
+#schematic::after {
+  content: ""; position: absolute; inset: 0; z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(rgba(185, 225, 255, 0.32) 1.2px, transparent 1.7px),
+    radial-gradient(rgba(150, 205, 245, 0.20) 1px, transparent 1.4px),
+    radial-gradient(rgba(200, 235, 255, 0.26) 0.8px, transparent 1.2px);
+  background-size: 210px 190px, 135px 155px, 95px 115px;
+  background-position: 23px 31px, 90px 110px, 50px 60px;
+  opacity: 0.65;
+  animation: schematicDrift 46s linear infinite;
+}
+@keyframes schematicDrift {
+  to { background-position: 65px -539px, 58px -355px, 74px -515px; }
+}
+/* pipeline, labels and leak marker render above the ambience */
+#schematic svg { position: relative; z-index: 1; }
+
+/* --- alarm annunciator: always one line at 1280–1920 px ---------------- */
+.annunciator {
+  white-space: nowrap;
+  flex: 0 0 auto;
+  font-size: clamp(11.5px, 1vw, 14px);
+  letter-spacing: 0.08em;
+  padding: 8px clamp(12px, 1.5vw, 22px);
+}
+@media (max-width: 1500px) {
+  .brand, .topbar-right { min-width: 0; }  /* let siblings yield to the banner */
 }

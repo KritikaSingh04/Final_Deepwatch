@@ -41,7 +41,7 @@ function applyConfig(cfg) {
     `C ${cfg.wave_speed_ms.toLocaleString()} m/s · ` +
     `${cfg.num_segments} segments × ${+kmS.toFixed(2)} km`;
   $("schematic-title").textContent =
-    `PIPELINE SCHEMATIC — ${cfg.num_segments} LOGICAL SEGMENTS`;
+    `Pipeline schematic — ${cfg.num_segments} logical segments`;
   const chip = $("mode-chip");
   if (cfg.mode === "engineering") {
     chip.textContent = `⚙ ENGINEERING — ${kmL.toLocaleString()} km`;

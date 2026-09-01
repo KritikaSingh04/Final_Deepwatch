@@ -60,7 +60,7 @@ export function initScene(container, cfg0) {
 
   // ---- dynamic pipeline line (segments + flanges + km markers) -----
   const flangeMat = new THREE.MeshStandardMaterial({
-    color: 0x2c3b57, metalness: 0.8, roughness: 0.32 });
+    color: 0x3a4d70, metalness: 0.8, roughness: 0.3 });
   const supMat = new THREE.MeshStandardMaterial({ color: 0x1d2c42, roughness: 0.9 });
 
   function buildLine() {
@@ -79,8 +79,8 @@ export function initScene(container, cfg0) {
       const w0 = toWorld(lo), w1 = toWorld(hi);
       const geo = new THREE.CylinderGeometry(1.25, 1.25, Math.max(w1 - w0 - 0.9, 0.5), 28);
       const mat = new THREE.MeshStandardMaterial({
-        color: TIER_HEX.GREEN, metalness: 0.55, roughness: 0.38,
-        emissive: TIER_HEX.GREEN, emissiveIntensity: 0.16 });
+        color: TIER_HEX.GREEN, metalness: 0.6, roughness: 0.32,
+        emissive: TIER_HEX.GREEN, emissiveIntensity: 0.28 });
       const m = new THREE.Mesh(geo, mat);
       m.rotation.z = Math.PI / 2;
       m.position.set((w0 + w1) / 2, PIPE_Y, 0);
@@ -179,12 +179,32 @@ export function initScene(container, cfg0) {
   pin.rotation.x = Math.PI;
   pin.position.y = PIPE_Y + 4.4;
   leakGroup.add(pin);
-  const leakLight = new THREE.PointLight(0xd03b3b, 14, 30);
+  const leakLight = new THREE.PointLight(0xd03b3b, 18, 34);
   leakLight.position.y = PIPE_Y + 2;
   leakGroup.add(leakLight);
   const leakLabel = textSprite("LEAK", "#ff9d9d", 58);
   leakLabel.position.y = PIPE_Y + 7.0;
   leakGroup.add(leakLabel);
+  // subtle red/orange halo billboard pinpointing the computed coordinate
+  const halo = (() => {
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = 128;
+    const c = cv.getContext("2d");
+    const g = c.createRadialGradient(64, 64, 4, 64, 64, 62);
+    g.addColorStop(0, "rgba(255, 120, 84, 0.55)");
+    g.addColorStop(0.35, "rgba(230, 74, 60, 0.28)");
+    g.addColorStop(1, "rgba(230, 74, 60, 0)");
+    c.fillStyle = g;
+    c.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(cv);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: tex, transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending, opacity: 0.8 }));
+    spr.scale.set(7, 7, 1);
+    spr.position.y = PIPE_Y;
+    return spr;
+  })();
+  leakGroup.add(halo);
 
   const N_BUB = 160;
   const bubGeo = new THREE.BufferGeometry();
@@ -197,7 +217,7 @@ export function initScene(container, cfg0) {
   }
   bubGeo.setAttribute("position", new THREE.BufferAttribute(bubPos, 3));
   const bubbles = new THREE.Points(bubGeo, new THREE.PointsMaterial({
-    color: 0xbfe6ff, size: 0.55, transparent: true, opacity: 0.85,
+    color: 0xcfeaff, size: 0.62, transparent: true, opacity: 1.0,
     sizeAttenuation: true, depthWrite: false }));
   leakGroup.add(bubbles);
   leakGroup.visible = false;
@@ -271,9 +291,10 @@ export function initScene(container, cfg0) {
     if (leakGroup.visible) {
       const s = 1 + 0.55 * Math.sin(t * 4.2);
       ring.scale.setScalar(Math.max(0.3, s));
-      ringMat.opacity = 0.75 - 0.35 * Math.sin(t * 4.2);
+      ringMat.opacity = 0.85 - 0.3 * Math.sin(t * 4.2);
       pin.position.y = PIPE_Y + 4.4 + Math.sin(t * 2.4) * 0.35;
-      leakLight.intensity = 10 + Math.sin(t * 6) * 6;
+      leakLight.intensity = 13 + Math.sin(t * 6) * 6;
+      halo.material.opacity = 0.72 + 0.18 * Math.sin(t * 4.2);
       const pos = bubGeo.attributes.position;
       for (let i = 0; i < N_BUB; i++) {
         const life = ((t * (0.25 + bubSeed[i * 2] * 0.4)) + bubSeed[i * 2]) % 1;
@@ -283,7 +304,7 @@ export function initScene(container, cfg0) {
         pos.setZ(i, Math.cos(bubSeed[i * 2 + 1] * 2 + h * 0.5) * (0.4 + life * 1.4));
       }
       pos.needsUpdate = true;
-      bubbles.material.opacity = 0.85;
+      bubbles.material.opacity = 1.0;
     }
 
     if (isolatedSeg != null && valveProgress < 1) {
