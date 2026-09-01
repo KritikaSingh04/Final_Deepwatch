@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEEPWATCH — Subsea Pipeline Integrity Twin</title>
+<link rel="stylesheet" href="/static/style.css">
+<script type="importmap">
+  {"imports": {"three": "/static/vendor/three.module.min.js",
+               "three/addons/controls/OrbitControls.js": "/static/vendor/OrbitControls.js"}}
+</script>
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand">
+    <div class="brand-mark">DW</div>
+    <div>
+      <div class="brand-name">DEEPWATCH</div>
+      <div class="brand-sub">Subsea Pipeline Integrity Twin · L 10,000 m · C 1,000 m/s</div>
+    </div>
+  </div>
+
+  <div id="annunciator" class="annunciator state-normal">
+    <span class="lamp"></span><span id="annunciator-text">SYSTEM NORMAL</span>
+  </div>
+
+  <div class="topbar-right">
+    <div class="clockbox">
+      <div class="clock-label">TELEMETRY T+</div>
+      <div id="sim-clock" class="clock">00:00.0</div>
+    </div>
+    <button id="mute-btn" class="icon-btn" title="Alarm sound">🔊</button>
+  </div>
+</header>
+
+<div id="stepper">
+  <div class="step" data-step="detect"><span class="step-dot"></span>DETECT<span class="step-t"></span></div>
+  <div class="step-link"></div>
+  <div class="step" data-step="analyze"><span class="step-dot"></span>ANALYZE<span class="step-t"></span></div>
+  <div class="step-link"></div>
+  <div class="step" data-step="localize"><span class="step-dot"></span>LOCALIZE<span class="step-t"></span></div>
+  <div class="step-link"></div>
+  <div class="step" data-step="visualize"><span class="step-dot"></span>VISUALIZE<span class="step-t"></span></div>
+  <div class="step-link"></div>
+  <div class="step" data-step="respond"><span class="step-dot"></span>RESPOND<span class="step-t"></span></div>
+
+  <div id="transport">
+    <select id="dataset-select" title="Dataset"></select>
+    <button id="upload-btn" class="ctl" title="Upload a blind dataset (.csv/.xlsx)">⬆ Blind dataset</button>
+    <input type="file" id="upload-input" accept=".csv,.xlsx,.xls" hidden>
+    <button id="batch-btn" class="ctl" title="Developer mode: evaluate multiple files offline (does not affect the streaming demo)">⚙ Batch eval</button>
+    <input type="file" id="batch-input" accept=".csv,.xlsx,.xls" multiple hidden>
+    <span class="sep"></span>
+    <button id="play-btn" class="ctl primary">▶ Stream</button>
+    <button id="reset-btn" class="ctl">⟲ Reset</button>
+    <span class="sep"></span>
+    <div id="speed-group" class="speed-group"></div>
+  </div>
+</div>
+
+<main>
+  <section class="col-left">
+    <div class="panel" id="viewport-panel">
+      <div class="panel-head">
+        <span>3D DIGITAL TWIN — OFFSHORE PRODUCTION MANIFOLD → RECEIVING TERMINAL</span>
+        <span class="panel-side" id="twin-hint">drag to orbit · scroll to zoom</span>
+      </div>
+      <div id="viewport"></div>
+      <div id="twin-legend">
+        <span><i class="sw" style="background:var(--good)"></i>Healthy ≥95%</span>
+        <span><i class="sw" style="background:var(--warn)"></i>Caution 80–95%</span>
+        <span><i class="sw" style="background:var(--serious)"></i>Degraded 60–80%</span>
+        <span><i class="sw" style="background:var(--crit)"></i>Critical &lt;60%</span>
+        <span><i class="sw sw-iso"></i>Isolated</span>
+        <span class="legend-note">pipe colour = global line health from the two
+        boundary sensors (no per-segment measurement implied)</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span>PIPELINE SCHEMATIC — 5 LOGICAL SEGMENTS</span>
+        <span class="panel-side" id="ref-flag-note"></span></div>
+      <div id="schematic"></div>
+    </div>
+
+    <div class="charts-row">
+      <div class="panel chart-panel">
+        <div class="panel-head"><span><i class="sw" style="background:var(--inlet)"></i>INLET PRESSURE — PT-001 (bar)</span>
+          <span class="panel-side" id="inlet-chart-side"></span></div>
+        <div class="chart-wrap"><canvas id="chart-inlet"></canvas><div class="chart-tip" id="tip-inlet"></div></div>
+      </div>
+      <div class="panel chart-panel">
+        <div class="panel-head"><span><i class="sw" style="background:var(--outlet)"></i>OUTLET PRESSURE — PT-002 (bar)</span>
+          <span class="panel-side" id="outlet-chart-side"></span></div>
+        <div class="chart-wrap"><canvas id="chart-outlet"></canvas><div class="chart-tip" id="tip-outlet"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="col-right">
+    <div class="kpi-row">
+      <div class="kpi" id="kpi-inlet">
+        <div class="kpi-head"><i class="sw" style="background:var(--inlet)"></i>INLET PT-001</div>
+        <div class="kpi-value"><span id="kpi-inlet-p">—</span><small> bar</small></div>
+        <div class="kpi-foot"><span id="kpi-inlet-ratio">—</span><span class="tier-chip" id="kpi-inlet-tier">—</span></div>
+      </div>
+      <div class="kpi" id="kpi-outlet">
+        <div class="kpi-head"><i class="sw" style="background:var(--outlet)"></i>OUTLET PT-002</div>
+        <div class="kpi-value"><span id="kpi-outlet-p">—</span><small> bar</small></div>
+        <div class="kpi-foot"><span id="kpi-outlet-ratio">—</span><span class="tier-chip" id="kpi-outlet-tier">—</span></div>
+      </div>
+    </div>
+
+    <div class="panel" id="npw-panel">
+      <div class="panel-head"><span>NPW LEAK LOCALIZATION</span>
+        <span class="panel-side">X = (L − C·Δt) / 2</span></div>
+      <div class="npw-grid">
+        <div class="npw-cell"><label>t<sub>in</sub></label><b id="npw-tin">—</b></div>
+        <div class="npw-cell"><label>t<sub>out</sub></label><b id="npw-tout">—</b></div>
+        <div class="npw-cell"><label>Δt</label><b id="npw-dt">—</b></div>
+        <div class="npw-cell"><label>severity</label><b id="npw-sev">—</b></div>
+      </div>
+      <div id="npw-x-box">
+        <div class="npw-x-label">LEAK LOCATION</div>
+        <div class="npw-dual" id="npw-dual">
+          <div class="npw-x-row">
+            <span class="npw-x-val" id="npw-x-in">— —</span>
+            <span class="npw-x-from"><i class="sw" style="background:var(--inlet)"></i>from INLET</span>
+          </div>
+          <div class="npw-x-row">
+            <span class="npw-x-val" id="npw-x-out">— —</span>
+            <span class="npw-x-from"><i class="sw" style="background:var(--outlet)"></i>from OUTLET</span>
+          </div>
+        </div>
+        <div class="npw-seg" id="npw-seg">awaiting transient arrivals at both stations</div>
+        <div class="npw-warn" id="npw-warn" hidden>⚠ Localization consistency warning —
+          X<sub>in</sub> + X<sub>out</sub> ≠ L within tolerance</div>
+      </div>
+      <div class="npw-eq mono" id="npw-eq"></div>
+      <details class="npw-eng" id="npw-eng">
+        <summary>Engineering details</summary>
+        <div class="npw-eng-body">
+          <div><label>t_event · estimated leak-origin time<br>
+            <span class="hint">(t_in + t_out − L/C) / 2 — diagnostic only</span></label>
+            <b class="mono" id="npw-tevent">—</b></div>
+          <div><label>dual-ended cross-check<br>
+            <span class="hint">X_in + X_out must equal L</span></label>
+            <b class="mono" id="npw-sum">—</b></div>
+        </div>
+      </details>
+    </div>
+
+    <div class="panel" id="edge-panel">
+      <div class="panel-head"><span>EDGE ANALYTICS — ADAPTIVE THRESHOLDS</span>
+        <span class="panel-side" id="ml-mode">AI layer: calibrating…</span></div>
+      <div class="edge-grid">
+        <div>
+          <label>AI anomaly percentile <span class="hint">(vs frozen baseline distribution · p95 advisory line)</span></label>
+          <div class="bar"><div class="bar-mark"></div><div class="bar-fill" id="ml-bar"></div><span class="bar-val" id="ml-val">—</span></div>
+          <div class="ai-note">Advisory only — the deterministic pressure-transient
+          detector remains the primary safety signal. Trained once on the stable
+          baseline window, then frozen.</div>
+        </div>
+        <div class="edge-cols">
+          <div><label>baseline PT-001 · stable window</label><b class="mono" id="base-in">—</b></div>
+          <div><label>baseline PT-002 · stable window</label><b class="mono" id="base-out">—</b></div>
+          <div><label>σ noise inlet</label><b class="mono" id="sig-in">—</b></div>
+          <div><label>σ noise outlet</label><b class="mono" id="sig-out">—</b></div>
+          <div><label>trip level inlet</label><b class="mono" id="thr-in">—</b></div>
+          <div><label>trip level outlet</label><b class="mono" id="thr-out">—</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="forecast-panel">
+      <div class="panel-head"><span>PREDICTIVE DECAY FORECAST</span>
+        <span class="panel-side">time-to-threshold</span></div>
+      <div id="forecast-body" class="forecast-idle">no active leak — forecasting armed</div>
+    </div>
+
+    <div class="panel" id="log-panel">
+      <div class="panel-head"><span>EVENT LOG</span>
+        <span class="panel-side" id="log-count"></span></div>
+      <div id="event-log"></div>
+    </div>
+
+    <button id="report-btn" class="report-btn" disabled>⬇ GENERATE INCIDENT REPORT</button>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<div id="batch-modal" hidden>
+  <div class="batch-card">
+    <div class="batch-head">
+      <span>BATCH EVALUATION — DEVELOPER MODE</span>
+      <button id="batch-close" class="icon-btn" title="Close">✕</button>
+    </div>
+    <div class="batch-note">Internal testing only. Each file or worksheet is
+    processed independently through the production inference path (a brand-new
+    engine per scenario, no ground truth involved). The main streaming demo is
+    unaffected.</div>
+    <div class="batch-toolbar">
+      <button id="batch-files-btn" class="ctl">📁 Choose files…</button>
+      <button id="batch-sheets-btn" class="ctl primary">▶ Run all blind sheets</button>
+      <span id="batch-workbook-note" class="batch-wb-note"></span>
+    </div>
+    <div id="batch-body"></div>
+  </div>
+</div>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

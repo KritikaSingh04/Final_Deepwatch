@@ -1,0 +1,29 @@
+{
+ "BLIND_MOCK_01.csv": {
+  "leak": true,
+  "x_m": 1600
+ },
+ "BLIND_MOCK_02.csv": {
+  "leak": true,
+  "x_m": 4900
+ },
+ "BLIND_MOCK_03.csv": {
+  "leak": true,
+  "x_m": 8300
+ },
+ "BLIND_MOCK_04.csv": {
+  "leak": true,
+  "x_m": 700
+ },
+ "BLIND_MOCK_05.csv": {
+  "leak": true,
+  "x_m": 6200
+ },
+ "BLIND_MOCK_06.csv": {
+  "leak": true,
+  "x_m": 9100
+ },
+ "BLIND_MOCK_07.csv": {
+  "leak": false
+ }
+}
