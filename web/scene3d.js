@@ -1,5 +1,7 @@
 /* 3D digital twin — subsea pipeline scene (three.js).
-   World scale: 1 unit = 100 m → pipeline spans x ∈ [-50, +50]. */
+   World scale: the pipeline always spans x ∈ [-50, +50] world units,
+   whatever its physical length; segments are built dynamically from the
+   active configuration and rebuilt when the mode changes. */
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -8,9 +10,14 @@ import { leakCardHtml } from "/static/leakcard.js";
 const TIER_HEX = { GREEN: 0x0ca30c, YELLOW: 0xfab219, ORANGE: 0xec835a, RED: 0xd03b3b };
 const PIPE_Y = 1.35, SPAN = 100, X0 = -50;
 
-export function initScene(container, lengthM) {
+export function initScene(container, cfg0) {
+  let cfg = { ...cfg0 };            // {length_m, segment_len_m, num_segments}
+  let segBounds = [];               // [[lo,hi], ...] metres
+  let segMeshes = [];
+  let lineGroup = null;
+
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x081120, 0.0105);
+  scene.fog = new THREE.FogExp2(0x07182b, 0.0115);
 
   const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 600);
   camera.position.set(-8, 19, 48);
@@ -30,7 +37,7 @@ export function initScene(container, lengthM) {
   controls.addEventListener("start", () => { userMoved = true; });
 
   // ---- lights ------------------------------------------------------
-  scene.add(new THREE.HemisphereLight(0x9fc8ff, 0x0a1a2a, 0.85));
+  scene.add(new THREE.HemisphereLight(0xa8d8ff, 0x08192e, 0.95));
   const sun = new THREE.DirectionalLight(0xbfe0ff, 0.7);
   sun.position.set(30, 80, 40);
   scene.add(sun);
@@ -47,47 +54,76 @@ export function initScene(container, lengthM) {
     bedGeo.computeVertexNormals();
   }
   const bed = new THREE.Mesh(bedGeo, new THREE.MeshStandardMaterial({
-    color: 0x16293d, roughness: 1, metalness: 0 }));
+    color: 0x152e49, roughness: 1, metalness: 0 }));
   bed.rotation.x = -Math.PI / 2;
   scene.add(bed);
 
-  // ---- pipeline: 5 segments + flanges + supports -------------------
-  const segMeshes = [], segLen = SPAN / 5;
-  const segGroup = new THREE.Group();
-  for (let i = 0; i < 5; i++) {
-    const geo = new THREE.CylinderGeometry(1.25, 1.25, segLen - 0.9, 28);
-    const mat = new THREE.MeshStandardMaterial({
-      color: TIER_HEX.GREEN, metalness: 0.55, roughness: 0.38,
-      emissive: TIER_HEX.GREEN, emissiveIntensity: 0.16 });
-    const m = new THREE.Mesh(geo, mat);
-    m.rotation.z = Math.PI / 2;
-    m.position.set(X0 + segLen * (i + 0.5), PIPE_Y, 0);
-    segGroup.add(m);
-    segMeshes.push(m);
-  }
+  // ---- dynamic pipeline line (segments + flanges + km markers) -----
   const flangeMat = new THREE.MeshStandardMaterial({
     color: 0x2c3b57, metalness: 0.8, roughness: 0.32 });
-  for (let i = 0; i <= 5; i++) {
-    const f = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.58, 1.58, 1.0, 24), flangeMat);
-    f.rotation.z = Math.PI / 2;
-    f.position.set(X0 + segLen * i, PIPE_Y, 0);
-    segGroup.add(f);
-  }
   const supMat = new THREE.MeshStandardMaterial({ color: 0x1d2c42, roughness: 0.9 });
-  for (let x = X0 + 5; x < 50; x += 10) {
-    const s = new THREE.Mesh(new THREE.BoxGeometry(1.6, PIPE_Y, 1.9), supMat);
-    s.position.set(x, PIPE_Y / 2 - 0.55, 0);
-    segGroup.add(s);
-  }
-  scene.add(segGroup);
 
-  // ---- km markers --------------------------------------------------
-  for (let km = 0; km <= 10; km += 2) {
-    const spr = textSprite(`${km} km`, "#7e8ea6", 44);
-    spr.position.set(X0 + (km / 10) * SPAN, 0.55, 6.4);
-    scene.add(spr);
+  function buildLine() {
+    const n = cfg.num_segments;
+    segBounds = [];
+    for (let i = 0; i < n; i++) {
+      const lo = i * cfg.segment_len_m;
+      const hi = i === n - 1 ? cfg.length_m
+        : Math.min((i + 1) * cfg.segment_len_m, cfg.length_m);
+      segBounds.push([lo, hi]);
+    }
+    const g = new THREE.Group();
+    segMeshes = [];
+    const toWorld = (m) => X0 + (m / cfg.length_m) * SPAN;
+    for (const [lo, hi] of segBounds) {
+      const w0 = toWorld(lo), w1 = toWorld(hi);
+      const geo = new THREE.CylinderGeometry(1.25, 1.25, Math.max(w1 - w0 - 0.9, 0.5), 28);
+      const mat = new THREE.MeshStandardMaterial({
+        color: TIER_HEX.GREEN, metalness: 0.55, roughness: 0.38,
+        emissive: TIER_HEX.GREEN, emissiveIntensity: 0.16 });
+      const m = new THREE.Mesh(geo, mat);
+      m.rotation.z = Math.PI / 2;
+      m.position.set((w0 + w1) / 2, PIPE_Y, 0);
+      g.add(m);
+      segMeshes.push(m);
+    }
+    for (let i = 0; i <= n; i++) {
+      const m = i === n ? cfg.length_m : Math.min(i * cfg.segment_len_m, cfg.length_m);
+      const f = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.58, 1.58, 1.0, 24), flangeMat);
+      f.rotation.z = Math.PI / 2;
+      f.position.set(toWorld(m), PIPE_Y, 0);
+      g.add(f);
+    }
+    for (let x = X0 + 5; x < 50; x += 10) {
+      const s = new THREE.Mesh(new THREE.BoxGeometry(1.6, PIPE_Y, 1.9), supMat);
+      s.position.set(x, PIPE_Y / 2 - 0.55, 0);
+      g.add(s);
+    }
+    // boundary distance markers, thinned when there are many segments
+    const step = Math.max(1, Math.ceil((n + 1) / 11));
+    for (let i = 0; i <= n; i += 1) {
+      if (i % step !== 0 && i !== n) continue;
+      const m = i === n ? cfg.length_m : Math.min(i * cfg.segment_len_m, cfg.length_m);
+      const spr = textSprite(`${+(m / 1000).toFixed(1)} km`, "#7e8ea6", 44);
+      spr.position.set(toWorld(m), 0.55, 6.4);
+      g.add(spr);
+    }
+    return g;
   }
+
+  function disposeGroup(g) {
+    g.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material && !(o.material === flangeMat || o.material === supMat)) {
+        if (o.material.map) o.material.map.dispose();
+        o.material.dispose();
+      }
+    });
+  }
+
+  lineGroup = buildLine();
+  scene.add(lineGroup);
 
   // ---- platforms ---------------------------------------------------
   scene.add(platform(X0 - 1.8, "INLET MANIFOLD", 0x3987e5));
@@ -116,7 +152,6 @@ export function initScene(container, lengthM) {
     const beacon = new THREE.PointLight(dotHex, 8, 26);
     beacon.position.set(0, 12.4, 0);
     g.add(beacon);
-    g.userData.beacon = beacon;
     const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 12),
       new THREE.MeshBasicMaterial({ color: dotHex }));
     lamp.position.set(0, 12.4, 0);
@@ -213,7 +248,7 @@ export function initScene(container, lengthM) {
   const _proj = new THREE.Vector3();
 
   // ---- state -------------------------------------------------------
-  let leakX = null, isolatedSeg = null, valveProgress = 0, alarm = false;
+  let isolatedSeg = null, valveProgress = 0, alarm = false;
 
   // ---- animate -----------------------------------------------------
   const clock = new THREE.Clock();
@@ -288,8 +323,18 @@ export function initScene(container, lengthM) {
 
   // ---- public API --------------------------------------------------
   return {
-    setSegments(tiers) {   // ["GREEN", ...] x5
+    rebuild(newCfg) {
+      cfg = { ...newCfg };
+      scene.remove(lineGroup);
+      disposeGroup(lineGroup);
+      lineGroup = buildLine();
+      scene.add(lineGroup);
+      this.setLeak(null);
+      this.setIsolation(null);
+    },
+    setSegments(tiers) {   // ["GREEN", ...] — length matches active config
       tiers.forEach((tier, i) => {
+        if (!segMeshes[i]) return;
         const hex = TIER_HEX[tier] ?? TIER_HEX.GREEN;
         segMeshes[i].material.color.setHex(hex);
         segMeshes[i].material.emissive.setHex(hex);
@@ -297,11 +342,10 @@ export function initScene(container, lengthM) {
     },
     setLeak(xM, info = null) {
       if (xM == null) {
-        leakGroup.visible = false; leakX = null; leakCard.hidden = true;
+        leakGroup.visible = false; leakCard.hidden = true;
         return;
       }
-      leakX = xM;
-      leakGroup.position.x = X0 + (xM / lengthM) * SPAN;
+      leakGroup.position.x = X0 + (xM / cfg.length_m) * SPAN;
       leakGroup.visible = true;
       if (info) {
         const html = leakCardHtml(info);
@@ -319,8 +363,9 @@ export function initScene(container, lengthM) {
       }
       if (isolatedSeg === segment) return;
       isolatedSeg = segment; valveProgress = 0; alarm = true;
-      valves[0].position.x = X0 + (segment - 1) * segLen;
-      valves[1].position.x = X0 + segment * segLen;
+      const [lo, hi] = segBounds[segment - 1] || [0, cfg.length_m];
+      valves[0].position.x = X0 + (lo / cfg.length_m) * SPAN;
+      valves[1].position.x = X0 + (hi / cfg.length_m) * SPAN;
       for (const v of valves) v.visible = true;
     },
   };

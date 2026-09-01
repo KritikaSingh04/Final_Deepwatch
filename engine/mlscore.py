@@ -54,12 +54,16 @@ class OnlineAnomalyScorer:
     def update(self, t: float, p_in: float, p_out: float,
                base_in: float, base_out: float,
                training_allowed: bool) -> Optional[dict]:
-        """Returns {"pct": anomaly percentile, "n_train": N} once trained,
-        None while collecting (or if training data was insufficient)."""
+        """Returns {"pct": anomaly percentile, "n_train": N, ...} once
+        trained; None while still collecting normal windows; and
+        {"unavailable": True} when training was impossible (too few
+        stable samples before the event) — the failure-safe marker the
+        UI turns into "AI corroboration unavailable — deterministic
+        detector active."""
         self._buf_in.append(p_in)
         self._buf_out.append(p_out)
         if len(self._buf_in) < self.WINDOW or base_in <= 0 or base_out <= 0:
-            return None
+            return self._status_when_unscored()
 
         feats = (self._features(self._buf_in, base_in)
                  + self._features(self._buf_out, base_out))
@@ -77,7 +81,7 @@ class OnlineAnomalyScorer:
                     self.frozen = True   # insufficient data — stay untrained
 
         if not self.trained:
-            return None
+            return self._status_when_unscored()
         d = self._decision(feats)
         # anomaly percentile vs the frozen training distribution, using
         # the plotting position rank/(N+1) — bounded away from 0 and 100
@@ -100,21 +104,42 @@ class OnlineAnomalyScorer:
                 "n_train": n, "ceiling": round(ceiling, 1)}
 
     # ------------------------------------------------------------------
+    def _status_when_unscored(self) -> Optional[dict]:
+        """None while still legitimately collecting; the unavailable
+        marker once frozen without a model."""
+        if self.frozen and not self.trained:
+            return {"unavailable": True}
+        return None
+
     @staticmethod
-    def _features(buf, baseline) -> list[float]:
+    def _slope(vals) -> float:
+        n = len(vals)
+        if n < 2:
+            return 0.0
+        mean = sum(vals) / n
+        xbar = (n - 1) / 2
+        num = sum((x - xbar) * (v - mean) for x, v in enumerate(vals))
+        den = sum((x - xbar) ** 2 for x in range(n))
+        return num / den if den else 0.0
+
+    @classmethod
+    def _features(cls, buf, baseline) -> list[float]:
+        """Per sensor, all normalised by that sensor's learned baseline:
+        pressure slope, short-window variance, drop ratio (deviation
+        below baseline), and acceleration (change of slope between the
+        two half-windows)."""
         vals = list(buf)
         n = len(vals)
         mean = sum(vals) / n
-        xs = range(n)
-        xbar = (n - 1) / 2
-        num = sum((x - xbar) * (v - mean) for x, v in zip(xs, vals))
-        den = sum((x - xbar) ** 2 for x in xs)
-        slope = num / den if den else 0.0
+        slope = cls._slope(vals)
         var = sum((v - mean) ** 2 for v in vals) / n
+        half = n // 2
+        accel = cls._slope(vals[half:]) - cls._slope(vals[:half])
         return [
             slope / baseline,
             (var ** 0.5) / baseline,
             (baseline - mean) / baseline,
+            accel / baseline,
         ]
 
     def _fit(self):

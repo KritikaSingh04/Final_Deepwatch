@@ -13,16 +13,19 @@ import time
 from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 import tempfile
 
-from engine.engine import AnalyticsEngine
-from engine.npw import PIPELINE_LENGTH_M, WAVE_SPEED_MS, NUM_SEGMENTS
+from engine.engine import AnalyticsEngine, EngineConfig
+from engine.npw import (PIPELINE_LENGTH_M, WAVE_SPEED_MS, SEGMENT_LENGTH_M,
+                        num_segments_for)
 from streaming.loader import (load as load_telemetry, inspect_sheets,
                               LoaderError, MultiSheetWorkbook, TelemetrySet)
+from server import history as history_mod
 from server.batch import evaluate_path
+from server.pdf_report import build_pdf_report
 from server.report import build_incident_report
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -38,7 +41,13 @@ class Session:
 
     def __init__(self):
         self.telemetry: Optional[TelemetrySet] = None
-        self.engine = AnalyticsEngine()
+        # COMPETITION MODE (default): locked official parameters, used for
+        # all blind datasets. ENGINEERING MODE swaps these for user values.
+        self.mode = "competition"
+        self.params = {"length_m": PIPELINE_LENGTH_M,
+                       "wave_speed_ms": WAVE_SPEED_MS,
+                       "segment_len_m": SEGMENT_LENGTH_M}
+        self.engine = self._new_engine()
         self.idx = 0
         self.speed = 5
         self.running = False
@@ -46,6 +55,23 @@ class Session:
         self.task: Optional[asyncio.Task] = None
         self.clients: set[WebSocket] = set()
         self.ticks: list[dict] = []   # compact ticks kept for late joiners
+        self.last_event_id: Optional[str] = None
+
+    def _new_engine(self) -> AnalyticsEngine:
+        return AnalyticsEngine(EngineConfig(**self.params))
+
+    def set_mode(self, mode: str, length_m: float, wave_speed_ms: float,
+                 segment_len_m: float):
+        if mode == "competition":
+            self.params = {"length_m": PIPELINE_LENGTH_M,
+                           "wave_speed_ms": WAVE_SPEED_MS,
+                           "segment_len_m": SEGMENT_LENGTH_M}
+        else:
+            self.params = {"length_m": length_m,
+                           "wave_speed_ms": wave_speed_ms,
+                           "segment_len_m": segment_len_m}
+        self.mode = mode
+        self.reset()   # fresh engine under the new configuration
 
     # -- lifecycle -----------------------------------------------------
     def load(self, path: str, sheet: Optional[str] = None):
@@ -60,10 +86,11 @@ class Session:
 
     def reset(self):
         self.stop()
-        self.engine = AnalyticsEngine()
+        self.engine = self._new_engine()
         self.idx = 0
         self.finished = False
         self.ticks = []
+        self.last_event_id = None
 
     def stop(self):
         self.running = False
@@ -104,8 +131,19 @@ class Session:
             if self.idx >= len(tel):
                 self.finished = True
                 self.running = False
+                # EVENT HISTORY: write-after logging only — built from the
+                # finished engine's outputs; the engine never reads it, so
+                # history cannot influence any current or future detection.
+                try:
+                    record = history_mod.build_record(
+                        self.engine, self.dataset_meta(), self.mode)
+                    history_mod.append(record)
+                    self.last_event_id = record["event_id"]
+                except Exception:
+                    pass  # logging must never break the run
                 await self._broadcast({"type": "finished",
-                                       "summary": self.summary()})
+                                       "summary": self.summary(),
+                                       "event_id": self.last_event_id})
         except asyncio.CancelledError:
             pass
 
@@ -138,9 +176,15 @@ class Session:
         return {
             "type": "init",
             "config": {
-                "length_m": PIPELINE_LENGTH_M,
-                "wave_speed_ms": WAVE_SPEED_MS,
-                "num_segments": NUM_SEGMENTS,
+                "mode": self.mode,
+                "length_m": self.params["length_m"],
+                "wave_speed_ms": self.params["wave_speed_ms"],
+                "segment_len_m": self.params["segment_len_m"],
+                "num_segments": num_segments_for(self.params["length_m"],
+                                                 self.params["segment_len_m"]),
+                "competition": {"length_m": PIPELINE_LENGTH_M,
+                                "wave_speed_ms": WAVE_SPEED_MS,
+                                "segment_len_m": SEGMENT_LENGTH_M},
                 "speeds": SPEEDS,
             },
             "dataset": self.dataset_meta(),
@@ -198,7 +242,8 @@ def _compact_tick(tick: dict) -> dict:
     """Wire format: short keys, only what the dashboard consumes."""
     def sensor(s):
         return {"p": s["p"], "b": s["baseline"], "r": s["ratio"],
-                "sg": s["sigma"], "cu": s["cusum"], "th": s["rate_threshold"],
+                "sg": s["sigma"], "dp": s["rate"], "cu": s["cusum"],
+                "th": s["rate_threshold"],
                 "bn": s["baseline_n"], "bst": s["baseline_stable"],
                 "ph": s["phase"], "tier": s["tier"], "arr": s["arrival"],
                 "trig": s["trigger"]}
@@ -211,7 +256,8 @@ def _compact_tick(tick: dict) -> dict:
         "gt": tick["global_tier"],
         "ml": tick["ml"],
         "leak": tick["leak"],
-        "seg": [{"n": s["segment"], "tier": s["tier"], "leak": s["leak"],
+        "seg": [{"n": s["segment"], "lo": s["lo_m"], "hi": s["hi_m"],
+                 "tier": s["tier"], "leak": s["leak"],
                  "iso": s["isolated"]} for s in tick["segments"]],
         "iso": tick["isolated"],
         "stg": tick["stages"],
@@ -366,6 +412,41 @@ async def batch_eval(files: list[UploadFile] = File(...)):
     return {"results": rows}
 
 
+@app.post("/api/mode")
+async def set_mode(body: dict):
+    """Switch between COMPETITION MODE (locked official parameters) and
+    ENGINEERING / SCALE MODE (user-supplied L, C and segment size)."""
+    mode = body.get("mode", "competition")
+    if mode not in ("competition", "engineering"):
+        return JSONResponse({"error": "mode must be competition|engineering"},
+                            status_code=400)
+    length_m = PIPELINE_LENGTH_M
+    wave = WAVE_SPEED_MS
+    seg = SEGMENT_LENGTH_M
+    if mode == "engineering":
+        try:
+            length_m = float(body.get("length_km", 10.0)) * 1000.0
+            wave = float(body.get("wave_speed_ms", 1000.0))
+            seg = float(body.get("segment_km", 2.0)) * 1000.0
+        except (TypeError, ValueError):
+            return JSONResponse({"error": "numeric parameters required"},
+                                status_code=400)
+        if not (100.0 <= length_m <= 10_000_000.0):
+            return JSONResponse({"error": "pipeline length must be 0.1–10,000 km"},
+                                status_code=400)
+        if not (50.0 <= wave <= 5000.0):
+            return JSONResponse({"error": "wave speed must be 50–5,000 m/s"},
+                                status_code=400)
+        if not (50.0 <= seg <= length_m):
+            return JSONResponse({"error": "segment size must be ≥0.05 km and "
+                                          "≤ pipeline length"}, status_code=400)
+    session.set_mode(mode, length_m, wave, seg)
+    await session._broadcast(session.snapshot())
+    return {"ok": True, "mode": session.mode, "params": session.params,
+            "num_segments": num_segments_for(session.params["length_m"],
+                                             session.params["segment_len_m"])}
+
+
 @app.post("/api/control")
 async def control(body: dict):
     action = body.get("action")
@@ -387,6 +468,26 @@ async def incident_report():
     html = build_incident_report(session.engine, session.dataset_meta())
     return HTMLResponse(html, headers={
         "Content-Disposition": "inline; filename=incident_report.html"})
+
+
+@app.get("/api/report.pdf")
+async def incident_report_pdf():
+    pdf = build_pdf_report(session.engine, session.dataset_meta(),
+                           session.mode, session.last_event_id)
+    return Response(content=pdf, media_type="application/pdf", headers={
+        "Content-Disposition": 'inline; filename="deepwatch_incident_report.pdf"'})
+
+
+@app.get("/api/history")
+async def get_history():
+    records = history_mod.read_all()
+    return {"records": records[-200:], "stats": history_mod.stats(records)}
+
+
+@app.post("/api/history/clear")
+async def clear_history():
+    history_mod.clear()
+    return {"ok": True}
 
 
 @app.websocket("/ws")

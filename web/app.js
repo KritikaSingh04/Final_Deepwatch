@@ -9,7 +9,8 @@ const TIER_LABEL = { GREEN: "HEALTHY", YELLOW: "CAUTION", ORANGE: "DEGRADED", RE
 
 // ---------------------------------------------------------------- state
 const S = {
-  cfg: { length_m: 10000, wave_speed_ms: 1000, speeds: [1, 2, 5, 10, 25, 50] },
+  cfg: { mode: "competition", length_m: 10000, wave_speed_ms: 1000,
+         segment_len_m: 2000, num_segments: 5, speeds: [1, 2, 5, 10, 25, 50] },
   ts: [], pin: [], pout: [], bin: [], bout: [],
   last: null,            // last tick
   running: false,
@@ -26,8 +27,34 @@ const chartIn = new StripChart($("chart-inlet"), $("tip-inlet"),
   { color: getComputedStyle(document.body).getPropertyValue("--inlet").trim() || "#3987e5", label: "inlet" });
 const chartOut = new StripChart($("chart-outlet"), $("tip-outlet"),
   { color: getComputedStyle(document.body).getPropertyValue("--outlet").trim() || "#d95926", label: "outlet" });
-const schematic = initSchematic($("schematic"), S.cfg.length_m);
-const scene = initScene($("viewport"), S.cfg.length_m);
+let schematic = initSchematic($("schematic"), S.cfg);
+const scene = initScene($("viewport"), S.cfg);
+
+function applyConfig(cfg) {
+  const changed = cfg.length_m !== S.cfg.length_m
+    || cfg.segment_len_m !== S.cfg.segment_len_m
+    || cfg.num_segments !== S.cfg.num_segments;
+  S.cfg = cfg;
+  const kmL = cfg.length_m / 1000, kmS = cfg.segment_len_m / 1000;
+  $("param-sub").textContent =
+    `Subsea Pipeline Integrity Twin · L ${kmL.toLocaleString()} km · ` +
+    `C ${cfg.wave_speed_ms.toLocaleString()} m/s · ` +
+    `${cfg.num_segments} segments × ${+kmS.toFixed(2)} km`;
+  $("schematic-title").textContent =
+    `PIPELINE SCHEMATIC — ${cfg.num_segments} LOGICAL SEGMENTS`;
+  const chip = $("mode-chip");
+  if (cfg.mode === "engineering") {
+    chip.textContent = `⚙ ENGINEERING — ${kmL.toLocaleString()} km`;
+    chip.classList.add("engineering");
+  } else {
+    chip.textContent = "🔒 COMPETITION — locked";
+    chip.classList.remove("engineering");
+  }
+  if (changed) {
+    schematic = initSchematic($("schematic"), cfg);   // rebuild 2D
+    scene.rebuild(cfg);                               // rebuild 3D line
+  }
+}
 
 // ---------------------------------------------------------------- websocket
 let ws, wsRetry = 0;
@@ -45,7 +72,7 @@ setInterval(() => { if (ws?.readyState === 1) ws.send("ping"); }, 20000);
 
 function handleMessage(msg) {
   if (msg.type === "init") {
-    S.cfg = msg.config;
+    applyConfig(msg.config);
     S.speed = msg.speed;
     S.running = msg.running;
     S.finished = msg.finished;
@@ -77,13 +104,15 @@ function resetArrays() {
   chartIn.setSeries(S.ts, S.pin, S.bin); chartIn.clear();
   chartOut.setSeries(S.ts, S.pout, S.bout); chartOut.clear();
   scene.setLeak(null); scene.setIsolation(null);
-  scene.setSegments(["GREEN", "GREEN", "GREEN", "GREEN", "GREEN"]);
+  const n = S.cfg.num_segments || 5;
+  scene.setSegments(Array.from({ length: n }, () => "GREEN"));
   schematic.update({
-    segments: Array.from({ length: 5 }, () => ({ tier: "GREEN", iso: false, leak: false })),
+    segments: Array.from({ length: n }, () => ({ tier: "GREEN", iso: false, leak: false })),
     leak: null, isolated: false, tIn: null, tOut: null,
   });
   document.body.classList.remove("alarm");
   $("report-btn").disabled = true;
+  $("report-btn").classList.remove("ready");
 }
 
 function ingestTick(t, replay) {
@@ -108,14 +137,18 @@ setInterval(() => { chartIn.dirty = true; chartOut.dirty = true; }, 400);
 (function paint() { chartIn.render(); chartOut.render(); requestAnimationFrame(paint); })();
 
 function resetPanels() {
-  // complete visual clear: baseline info, NPW results, AI layer, forecast,
-  // KPIs — replaying the same file must start from exactly this state
-  for (const id of ["kpi-inlet-p", "kpi-outlet-p"]) $(id).textContent = "—";
-  for (const id of ["kpi-inlet-ratio", "kpi-outlet-ratio"]) $(id).textContent = "—";
-  for (const id of ["kpi-inlet-tier", "kpi-outlet-tier"]) {
-    $(id).textContent = "—"; $(id).className = "tier-chip";
+  // complete visual clear — replaying the same file must start from
+  // exactly this state
+  for (const side of ["in", "out"]) {
+    for (const k of ["p", "ratio", "dp", "dev", "base", "sig", "thr"])
+      $(`asq-${side}-${k}`).textContent = "—";
+    const chip = $(`asq-${side}-tier`);
+    chip.textContent = "—"; chip.className = "tier-chip";
+    const st = $(`asq-${side}-state`);
+    st.textContent = "—"; st.className = "asq-state learning";
   }
   for (const id of ["npw-tin", "npw-tout", "npw-dt", "npw-sev"]) $(id).textContent = "—";
+  $("npw-sev").classList.remove("grad-alarm");
   $("npw-x-in").textContent = "— —";
   $("npw-x-out").textContent = "— —";
   $("npw-dual").classList.remove("located");
@@ -124,8 +157,8 @@ function resetPanels() {
   $("npw-eq").textContent = "";
   $("npw-tevent").textContent = "—";
   $("npw-sum").textContent = "—";
-  for (const id of ["sig-in", "sig-out", "thr-in", "thr-out", "base-in", "base-out"])
-    $(id).textContent = "—";
+  $("ai-status").textContent = "—";
+  $("ai-status").className = "ai-status";
   $("ml-mode").textContent = "AI layer: training on stable baseline window…";
   $("ml-bar").style.width = "0%";
   $("ml-val").textContent = "—";
@@ -147,9 +180,9 @@ function fullRefresh() {
   // clocks
   $("sim-clock").textContent = fmtClock(t.t);
 
-  // KPI tiles
-  setKpi("inlet", t.in);
-  setKpi("outlet", t.out);
+  // ADAPTIVE SIGNAL QUALITY — primary engineering readouts
+  setAsq("in", t.in);
+  setAsq("out", t.out);
 
   // chart side notes + markers (baseline learned from stable telemetry)
   const bInfo = (s) => s.ph === "WARMUP"
@@ -166,6 +199,7 @@ function fullRefresh() {
   $("npw-tout").textContent = t.out.arr != null ? t.out.arr.toFixed(2) + " s" : "—";
   $("npw-dt").textContent = t.leak?.delta_t != null ? fmtSigned(t.leak.delta_t) + " s" : "—";
   $("npw-sev").textContent = t.sev ?? "—";
+  $("npw-sev").classList.toggle("grad-alarm", t.sev === "CRITICAL");
   if (t.leak && t.leak.valid) {
     const L = S.cfg.length_m, C = S.cfg.wave_speed_ms;
     $("npw-x-in").textContent = Math.round(t.leak.x_m).toLocaleString() + " m";
@@ -191,7 +225,8 @@ function fullRefresh() {
     $("npw-dual").classList.remove("located");
     $("npw-warn").hidden = true;
     $("npw-seg").textContent =
-      "Δt outside physical bounds — transients not correlated, no localization";
+      "INVALID LOCALIZATION — timing inconsistent with configured pipeline " +
+      `(|Δt| > L/C = ${(S.cfg.length_m / S.cfg.wave_speed_ms).toFixed(1)} s)`;
     $("npw-eq").textContent = "";
     $("npw-tevent").textContent = "—";
     $("npw-sum").textContent = "—";
@@ -206,24 +241,31 @@ function fullRefresh() {
     $("npw-sum").textContent = "—";
   }
 
-  // edge analytics (thresholds in bar/s from actual timestamp spacing)
-  $("sig-in").textContent = t.in.sg.toFixed(3) + " bar";
-  $("sig-out").textContent = t.out.sg.toFixed(3) + " bar";
-  $("thr-in").textContent = "−" + t.in.th.toFixed(2) + " bar/s";
-  $("thr-out").textContent = "−" + t.out.th.toFixed(2) + " bar/s";
-  $("base-in").textContent = t.in.ph === "WARMUP" ? "learning…"
-    : `${t.in.b.toFixed(2)} bar (n=${t.in.bn})`;
-  $("base-out").textContent = t.out.ph === "WARMUP" ? "learning…"
-    : `${t.out.b.toFixed(2)} bar (n=${t.out.bn})`;
-  if (t.ml != null) {
+  // AI layer — advisory, text-first; raw percentile lives in Engineering Detail
+  if (t.ml && t.ml.unavailable) {
+    // failure-safe: core detection continues, AI simply reports absent
+    const ai = $("ai-status");
+    ai.textContent = "UNAVAILABLE";
+    ai.className = "ai-status unavailable";
     $("ml-mode").textContent =
-      `AI layer: frozen after baseline training (n=${t.ml.n_train}) · advisory`;
-    $("ml-bar").style.width = Math.min(100, t.ml.pct) + "%";
-    // alert judgement scales to this dataset's calibrated ceiling N/(N+1)
+      "AI corroboration unavailable — deterministic detector active.";
+    $("ml-bar").style.width = "0%";
+    $("ml-val").textContent = "—";
+  } else if (t.ml != null) {
     const alertAt = Math.min(95, (t.ml.ceiling ?? 100) * 0.98);
+    const status = t.ml.pct >= alertAt ? "HIGH"
+      : t.ml.pct >= alertAt * 0.85 ? "ELEVATED" : "NORMAL";
+    const ai = $("ai-status");
+    ai.textContent = status;
+    ai.className = "ai-status " + status.toLowerCase();
+    $("ml-mode").textContent =
+      `frozen after baseline training (n=${t.ml.n_train}) · advisory`;
+    $("ml-bar").style.width = Math.min(100, t.ml.pct) + "%";
     $("ml-val").textContent = "p" + t.ml.pct.toFixed(1) +
-      (t.ml.pct >= alertAt ? " · anomalous" : " · nominal");
+      (status === "HIGH" ? " · anomalous" : " · nominal");
   } else {
+    $("ai-status").textContent = "calibrating";
+    $("ai-status").className = "ai-status";
     $("ml-mode").textContent = "AI layer: training on stable baseline window…";
     $("ml-bar").style.width = "0%";
     $("ml-val").textContent = "—";
@@ -236,7 +278,8 @@ function fullRefresh() {
   // boundary sensors measure pressure; nothing per-segment is implied)
   const validLeak = t.leak && t.leak.valid ? t.leak : null;
   schematic.update({
-    segments: t.seg.map((s) => ({ tier: s.tier, iso: s.iso, leak: s.leak })),
+    segments: t.seg.map((s) => ({ tier: s.tier, iso: s.iso, leak: s.leak,
+                                  lo: s.lo, hi: s.hi })),
     leak: validLeak, isolated: t.iso,
     tIn: t.in.arr, tOut: t.out.arr,
   });
@@ -258,12 +301,31 @@ function fullRefresh() {
   $("report-btn").disabled = S.ts.length === 0;
 }
 
-function setKpi(name, s) {
-  $(`kpi-${name}-p`).textContent = s.p.toFixed(2);
-  $(`kpi-${name}-ratio`).textContent = (s.r * 100).toFixed(1) + "% of baseline";
-  const chip = $(`kpi-${name}-tier`);
+const SIGNAL_STATE = {
+  WARMUP: ["LEARNING BASELINE", "learning"],
+  MONITORING: ["NORMAL", ""],
+  CANDIDATE: ["TRANSIENT CANDIDATE", "candidate"],
+  CONFIRMED: ["TRANSIENT CONFIRMED", "confirmed"],
+};
+
+function setAsq(side, s) {
+  $(`asq-${side}-p`).textContent = s.p.toFixed(2);
+  $(`asq-${side}-ratio`).textContent = (s.r * 100).toFixed(1) + "%";
+  const chip = $(`asq-${side}-tier`);
   chip.textContent = TIER_LABEL[s.tier];
   chip.className = "tier-chip tier-" + s.tier;
+  $(`asq-${side}-dp`).textContent = (s.dp >= 0 ? "+" : "−") + Math.abs(s.dp).toFixed(2);
+  const dev = s.p - s.b;
+  $(`asq-${side}-dev`).textContent = s.ph === "WARMUP" ? "—"
+    : (dev >= 0 ? "+" : "−") + Math.abs(dev).toFixed(2) + " bar";
+  $(`asq-${side}-base`).textContent = s.ph === "WARMUP"
+    ? "learning…" : `${s.b.toFixed(2)} bar (n=${s.bn}${s.bst ? "" : ", prov."})`;
+  $(`asq-${side}-sig`).textContent = s.sg.toFixed(3) + " bar";
+  $(`asq-${side}-thr`).textContent = "−" + s.th.toFixed(2) + " bar/s";
+  const [label, cls] = SIGNAL_STATE[s.ph] || ["—", "learning"];
+  const st = $(`asq-${side}-state`);
+  st.textContent = label;
+  st.className = "asq-state" + (cls ? " " + cls : "");
 }
 
 const ALARM_STATES = ["LEAK_CONFIRMED", "LOCALIZED", "CRITICAL", "ISOLATED"];
@@ -293,31 +355,43 @@ function updateStepper(stg) {
   });
 }
 
-function renderForecast(fc, now) {
+function renderForecast(fc) {
   const body = $("forecast-body");
   if (!fc) {
     body.className = "forecast-idle";
-    body.textContent = S.last?.st === "ISOLATED"
-      ? "segment isolated — decay containment in effect"
-      : "no active leak — forecasting armed";
+    body.textContent = "no active leak — forecasting armed";
     return;
   }
   body.className = "";
-  const rows = [];
-  for (const [sensor, color] of [["inlet", "var(--inlet)"], ["outlet", "var(--outlet)"]]) {
-    for (const [key, label, frac] of [["caution_80", "→ DEGRADED (<80%)", 0.8],
-                                      ["critical_60", "→ CRITICAL (<60%)", 0.6]]) {
-      const v = fc[sensor]?.[key];
-      let eta, cls = "";
-      if (v === 0) { eta = "crossed"; cls = "now"; }
-      else if (v == null) { eta = "—"; }
-      else { eta = "T−" + v.toFixed(1) + " s"; cls = v < 5 ? "now" : ""; }
-      rows.push(`<div class="fc-row"><i class="sw" style="background:${color}"></i>` +
-        `<span class="fc-what">${sensor.toUpperCase()} ${label}</span>` +
-        `<span class="fc-eta ${cls}">${eta}</span></div>`);
+  const block = (name, color, f) => {
+    if (!f) return "";
+    const cur = f.ratio != null ? (f.ratio * 100).toFixed(1) + "% baseline" : "—";
+    const decay = f.slope_bar_s != null
+      ? "−" + Math.abs(f.slope_bar_s).toFixed(2) + " bar/s" : "—";
+    const fmt = (v, label) => {
+      if (v === "crossed")
+        return `<span class="fc-eta now">${label.toUpperCase()} — crossed</span>`;
+      if (typeof v === "number")
+        return `<span class="fc-eta ${v < 5 ? "now" : ""}">${label} ETA: ~${v.toFixed(1)} s</span>`;
+      return null;
+    };
+    const parts = [fmt(f.caution_80, "Degraded"),
+                   fmt(f.critical_60, "Critical")].filter(Boolean);
+    const allCrossed = f.caution_80 === "crossed" && f.critical_60 === "crossed";
+    if (!f.trend_ok && !allCrossed) {
+      parts.push(`<span class="fc-una">Forecast unavailable — ${
+        escapeHtml(f.reason || "no consistent decay trend")}</span>`);
+    } else if (f.trend_ok && !parts.length) {
+      parts.push(`<span class="fc-una">beyond forecast horizon</span>`);
     }
-  }
-  body.innerHTML = rows.join("");
+    return `<div class="fc-block">
+      <div class="fc-head"><i class="sw" style="background:${color}"></i><b>${name}</b>
+        <span>Current: <b class="mono">${cur}</b></span>
+        <span>Decay: <b class="mono">${decay}</b></span></div>
+      <div class="fc-etas">${parts.join(" &nbsp;·&nbsp; ")}</div></div>`;
+  };
+  body.innerHTML = block("INLET", "var(--inlet)", fc.inlet)
+                 + block("OUTLET", "var(--outlet)", fc.outlet);
 }
 
 // ---------------------------------------------------------------- events
@@ -336,7 +410,11 @@ function logEvent(e) {
 
 function reactToEvent(e) {
   if (e.kind === "LEAK_CONFIRMED") { sound("leak"); toast("⚠ LEAK CONFIRMED — correlated transients at both stations"); }
-  else if (e.kind === "VIRTUAL_ISOLATION") { sound("isolation"); toast("⛔ AUTOMATIC VIRTUAL ISOLATION EXECUTED"); }
+  else if (e.kind === "VIRTUAL_ISOLATION") {
+    sound("isolation");
+    toast("⛔ AUTOMATIC VIRTUAL ISOLATION EXECUTED — incident report (PDF) ready");
+    $("report-btn").classList.add("ready");
+  }
   else if (e.kind === "CRITICAL_CONDITION") { toast("🟥 CRITICAL — sustained pressure below 60% of baseline"); }
   else if (e.kind === "LEAK_LOCALIZED") { toast("Leak localized: " + Math.round(e.x_m).toLocaleString() + " m from inlet (Segment " + e.segment + ")"); }
   else if (e.kind === "LOCALIZATION_INVALID") { toast("⚠ Transients not correlated — localization invalid"); }
@@ -446,7 +524,138 @@ $("upload-input").onchange = async (e) => {
   }
   e.target.value = "";
 };
-$("report-btn").onclick = () => window.open("/api/report", "_blank");
+$("report-btn").onclick = () => window.open("/api/report.pdf", "_blank");
+
+// ---------------------------------------------------------------- event history
+$("history-btn").onclick = openHistory;
+$("history-close").onclick = () => { $("history-modal").hidden = true; };
+$("history-modal").onclick = (e) => { if (e.target === $("history-modal")) $("history-modal").hidden = true; };
+$("history-clear").onclick = async () => {
+  await fetch("/api/history/clear", { method: "POST" });
+  openHistory();
+};
+
+async function openHistory() {
+  $("history-modal").hidden = false;
+  $("history-body").innerHTML =
+    `<div style="color:var(--muted);padding:10px 4px">loading…</div>`;
+  try {
+    const r = await fetch("/api/history").then((r) => r.json());
+    renderHistory(r.stats, r.records || []);
+  } catch (err) {
+    $("history-body").innerHTML =
+      `<div class="bad" style="padding:10px 4px">failed to load history: ${escapeHtml(String(err))}</div>`;
+  }
+}
+
+function renderHistory(stats, records) {
+  const tile = (label, value, note = "") =>
+    `<div class="hist-tile"><label>${label}</label><b>${value}</b>` +
+    (note ? ` <small>${note}</small>` : "") + `</div>`;
+  let tiles =
+    tile("TOTAL RUNS", stats.total_runs) +
+    tile("LEAKS DETECTED", stats.leaks_detected) +
+    tile("NO-LEAK RUNS", stats.no_leak_runs) +
+    tile("AVG DETECTION LATENCY", stats.avg_detection_latency_s != null
+      ? stats.avg_detection_latency_s.toFixed(2) + " s" : "—") +
+    tile("ISOLATIONS", stats.isolations);
+  if (stats.truth_available) {
+    tiles += tile("FALSE ALARMS", stats.false_alarms,
+                  "dev answer key · " + stats.judged_runs + " judged");
+  }
+
+  const bIn = records.map((r) => r.baseline_in);
+  const bOut = records.map((r) => r.baseline_out);
+  const nIn = records.map((r) => r.noise_in);
+  const nOut = records.map((r) => r.noise_out);
+  const SEV = { null: 0, LOW: 1, MAJOR: 2, CRITICAL: 3 };
+  const sev = records.map((r) => SEV[r.max_severity] ?? 0);
+
+  const trends = `
+    <div class="hist-trends">
+      <div class="hist-trend"><h4>SENSOR BASELINE (bar) — <i class="sw" style="background:var(--inlet)"></i> inlet · <i class="sw" style="background:var(--outlet)"></i> outlet</h4>
+        ${trendSvg([bIn, bOut], ["var(--inlet)", "var(--outlet)"])}</div>
+      <div class="hist-trend"><h4>NOISE σ (bar) — inlet · outlet</h4>
+        ${trendSvg([nIn, nOut], ["var(--inlet)", "var(--outlet)"], 3)}</div>
+      <div class="hist-trend"><h4>EVENT SEVERITY</h4>
+        ${trendSvg([sev], ["var(--serious)"], 0,
+                   [[0, "none"], [1, "LOW"], [2, "MAJ"], [3, "CRIT"]])}</div>
+      <div class="hist-trend"><h4>LEAK LOCATIONS (position / pipeline length)</h4>
+        ${leakStripSvg(records)}</div>
+    </div>`;
+
+  const rows = records.slice(-20).reverse().map((r) => {
+    const when = (r.timestamp || "").replace("T", " ");
+    return `<tr><td>${escapeHtml(String(r.dataset))}</td>` +
+      `<td>${when}</td>` +
+      `<td>${r.leak_detected ? '<span class="yes">yes</span>' : '<span class="no">no</span>'}</td>` +
+      `<td>${r.x_in_m != null ? Math.round(r.x_in_m).toLocaleString() : "—"}</td>` +
+      `<td>${r.segment != null ? "S" + r.segment : "—"}</td>` +
+      `<td>${r.max_severity ?? "—"}</td>` +
+      `<td>${r.detection_latency_s != null ? r.detection_latency_s.toFixed(2) + " s" : "—"}</td>` +
+      `<td>${escapeHtml(r.ai_corroboration ?? "—")}</td>` +
+      `<td>${r.isolated ? '<span class="yes">yes</span>' : '<span class="no">no</span>'}</td></tr>`;
+  }).join("");
+  const table = records.length
+    ? `<table><thead><tr><th>Dataset</th><th>When</th><th>Leak?</th>
+        <th>X (m)</th><th>Seg</th><th>Severity</th><th>Latency</th>
+        <th>AI</th><th>Isolated</th></tr></thead><tbody>${rows}</tbody></table>`
+    : `<div style="color:var(--muted);padding:8px 4px">no completed runs recorded yet — stream a dataset to the end.</div>`;
+
+  $("history-body").innerHTML =
+    `<div class="hist-tiles">${tiles}</div>` + trends + table;
+}
+
+function trendSvg(seriesList, colors, nd = 1, yTicks = null) {
+  const all = seriesList.flat().filter((v) => v != null && isFinite(v));
+  if (!all.length) return `<div class="fc-una" style="padding:6px 0">no data yet</div>`;
+  let lo = Math.min(...all), hi = Math.max(...all);
+  if (yTicks) { lo = Math.min(lo, yTicks[0][0]); hi = Math.max(hi, yTicks[yTicks.length - 1][0]); }
+  if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
+  const span = hi - lo; lo -= span * 0.08; hi += span * 0.08;
+  const W = 300, H = 86, L = 36, R = 10, T = 8, B = 16;
+  const n = Math.max(...seriesList.map((s) => s.length));
+  const X = (i) => n < 2 ? (L + (W - L - R) / 2) : L + (i / (n - 1)) * (W - L - R);
+  const Y = (v) => T + (hi - v) / (hi - lo) * (H - T - B);
+  let g = "";
+  const ticks = yTicks || [[lo + span * 0.08, null], [(lo + hi) / 2, null], [hi - span * 0.08, null]];
+  for (const [v, lbl] of ticks) {
+    g += `<line x1="${L}" y1="${Y(v)}" x2="${W - R}" y2="${Y(v)}" stroke="#1c2739"/>` +
+      `<text x="${L - 4}" y="${Y(v) + 3}" text-anchor="end" font-size="8" fill="#7e8ea6">${
+        lbl ?? v.toFixed(nd)}</text>`;
+  }
+  let lines = "";
+  seriesList.forEach((s, si) => {
+    let d = "", pen = false;
+    s.forEach((v, i) => {
+      if (v == null || !isFinite(v)) { pen = false; return; }
+      d += (pen ? " L" : " M") + X(i).toFixed(1) + " " + Y(v).toFixed(1);
+      pen = true;
+      lines += `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="2" fill="${colors[si]}"/>`;
+    });
+    lines += `<path d="${d}" fill="none" stroke="${colors[si]}" stroke-width="1.6"/>`;
+  });
+  g += `<text x="${W - R}" y="${H - 3}" text-anchor="end" font-size="8" fill="#7e8ea6">run #</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" font-family="system-ui">${g}${lines}</svg>`;
+}
+
+function leakStripSvg(records) {
+  const pts = records.filter((r) => r.x_in_m != null && r.length_m > 0);
+  if (!pts.length) return `<div class="fc-una" style="padding:6px 0">no localized leaks yet</div>`;
+  const W = 300, H = 52, L = 14, R = 14, y = 26;
+  let g = `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" stroke="#2c3b57" stroke-width="3" stroke-linecap="round"/>`;
+  for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+    const x = L + f * (W - L - R);
+    g += `<line x1="${x}" y1="${y - 5}" x2="${x}" y2="${y + 5}" stroke="#2c3b57"/>` +
+      `<text x="${x}" y="${y + 16}" text-anchor="middle" font-size="8" fill="#7e8ea6">${
+        f === 0 ? "inlet" : f === 1 ? "outlet" : (f * 100) + "%"}</text>`;
+  }
+  for (const r of pts) {
+    const x = L + (r.x_in_m / r.length_m) * (W - L - R);
+    g += `<circle cx="${x.toFixed(1)}" cy="${y}" r="3.4" fill="var(--crit)" opacity="0.8"/>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" font-family="system-ui">${g}</svg>`;
+}
 
 // ---- batch evaluation (developer mode, offline, independent engines) ----
 $("batch-btn").onclick = () => {
@@ -529,6 +738,68 @@ function renderBatchResults(rows) {
     `<tbody>${body}</tbody></table>`;
 }
 
+// ---------------------------------------------------------------- operating mode
+$("mode-chip").onclick = () => {
+  const eng = S.cfg.mode === "engineering";
+  $("mode-eng").checked = eng;
+  $("mode-comp").checked = !eng;
+  if (eng) {
+    $("mode-length").value = S.cfg.length_m / 1000;
+    $("mode-wave").value = S.cfg.wave_speed_ms;
+    $("mode-segment").value = S.cfg.segment_len_m / 1000;
+  }
+  syncModeInputs();
+  $("mode-modal").hidden = false;
+};
+$("mode-close").onclick = () => { $("mode-modal").hidden = true; };
+$("mode-modal").onclick = (e) => { if (e.target === $("mode-modal")) $("mode-modal").hidden = true; };
+$("mode-comp").onchange = syncModeInputs;
+$("mode-eng").onchange = syncModeInputs;
+for (const id of ["mode-length", "mode-wave", "mode-segment"])
+  $(id).oninput = updateModePreview;
+
+function syncModeInputs() {
+  const eng = $("mode-eng").checked;
+  for (const id of ["mode-length", "mode-wave", "mode-segment"])
+    $(id).disabled = !eng;
+  updateModePreview();
+}
+
+function updateModePreview() {
+  if (!$("mode-eng").checked) { $("mode-preview").textContent = ""; return; }
+  const L = parseFloat($("mode-length").value) || 0;
+  const seg = parseFloat($("mode-segment").value) || 0;
+  const C = parseFloat($("mode-wave").value) || 0;
+  if (L > 0 && seg > 0 && C > 0) {
+    const n = Math.max(1, Math.ceil(L / seg - 1e-9));
+    const rem = L - (n - 1) * seg;
+    $("mode-preview").textContent =
+      `→ ${n} dynamic segments · physical |Δt| limit = L/C = ${(L * 1000 / C).toFixed(1)} s` +
+      (Math.abs(rem - seg) > 1e-9 ? ` · final segment ${+rem.toFixed(2)} km (remainder)` : "");
+  } else {
+    $("mode-preview").textContent = "";
+  }
+}
+
+$("mode-apply").onclick = async () => {
+  const mode = $("mode-eng").checked ? "engineering" : "competition";
+  const body = { mode };
+  if (mode === "engineering") {
+    body.length_km = parseFloat($("mode-length").value);
+    body.wave_speed_ms = parseFloat($("mode-wave").value);
+    body.segment_km = parseFloat($("mode-segment").value);
+  }
+  const r = await fetch("/api/mode", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body) }).then((r) => r.json());
+  if (r.error) { toast("✗ " + r.error); return; }
+  $("mode-modal").hidden = true;
+  toast(mode === "competition"
+    ? "🔒 Competition parameters — locked · L 10,000 m · C 1,000 m/s · 5 × 2,000 m"
+    : `⚙ Engineering mode — L ${body.length_km} km · C ${body.wave_speed_ms} m/s → ${r.num_segments} segments`,
+    { ms: 5000 });
+};
+
 // ---------------------------------------------------------------- sound
 $("mute-btn").textContent = S.muted ? "🔇" : "🔊";
 $("mute-btn").onclick = () => {
@@ -575,5 +846,43 @@ function toast(msg, opts = {}) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.style.display = "none"; }, opts.ms ?? 3600);
 }
+
+// ------------------------------------------------- deep-sea cursor parallax
+// Purely decorative: transforms only the fixed ambience layers and (very
+// slightly) the twin canvas. GPU transforms, rAF with easing, self-stops at
+// rest; disabled for reduced-motion, coarse pointers and low-power devices.
+(function initParallax() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (matchMedia("(pointer: coarse)").matches) return;
+  if ((navigator.hardwareConcurrency || 8) <= 4) return;
+  const layers = [
+    [document.querySelector(".sea-grad"), 5],
+    [document.querySelector(".sea-haze"), 11],
+    [document.querySelector(".sea-rays"), 17],
+    [document.querySelector(".sea-particles"), 24],
+  ].filter(([el]) => el);
+  if (!layers.length) return;
+  let tx = 0, ty = 0, cx = 0, cy = 0, raf = null;
+  addEventListener("pointermove", (e) => {
+    tx = e.clientX / innerWidth - 0.5;
+    ty = e.clientY / innerHeight - 0.5;
+    if (!raf && !document.hidden) raf = requestAnimationFrame(step);
+  }, { passive: true });
+  function step() {
+    cx += (tx - cx) * 0.055;
+    cy += (ty - cy) * 0.055;
+    for (const [el, amp] of layers) {
+      el.style.transform =
+        `translate3d(${(-cx * amp).toFixed(2)}px, ${(-cy * amp).toFixed(2)}px, 0)`;
+    }
+    const cv = document.querySelector("#viewport canvas");
+    if (cv) {
+      cv.style.transform =
+        `translate3d(${(cx * 5).toFixed(2)}px, ${(cy * 3.5).toFixed(2)}px, 0) scale(1.015)`;
+    }
+    raf = (Math.abs(tx - cx) + Math.abs(ty - cy)) > 0.0008
+      ? requestAnimationFrame(step) : null;
+  }
+})();
 
 refreshDatasets();

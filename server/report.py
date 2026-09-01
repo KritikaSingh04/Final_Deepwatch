@@ -14,8 +14,7 @@ from typing import Optional
 
 from engine.engine import AnalyticsEngine, ISOLATED, LEAK_CONFIRMED
 from engine.health import TIER_LABEL
-from engine.npw import (PIPELINE_LENGTH_M, WAVE_SPEED_MS, NUM_SEGMENTS,
-                        segment_range_label)
+from engine.npw import num_segments_for
 
 # light-surface palette (report is a printed document, light by design)
 INK = "#0b0b0b"
@@ -48,8 +47,11 @@ def build_incident_report(engine: AnalyticsEngine, dataset: Optional[dict]) -> s
     row("Generated", now.strftime("%Y-%m-%d %H:%M:%S"))
     row("Dataset", (dataset or {}).get("name", "—"))
     row("Samples processed", f"{engine.sample_count:,}")
-    row("Pipeline", f"L = {PIPELINE_LENGTH_M:,.0f} m · C = {WAVE_SPEED_MS:,.0f} m/s "
-                    f"· {NUM_SEGMENTS} logical segments")
+    ec = engine.config
+    n_seg = num_segments_for(ec.length_m, ec.segment_len_m)
+    row("Pipeline", f"L = {ec.length_m:,.0f} m · C = {ec.wave_speed_ms:,.0f} m/s "
+                    f"· {n_seg} logical segments "
+                    f"({ec.segment_len_m / 1000:g} km each)")
     row("Final system state", _state_badge(engine.state))
     row("Event severity", engine.severity or "—")
     if engine.inlet.arrival_time is not None:
@@ -89,10 +91,10 @@ def build_incident_report(engine: AnalyticsEngine, dataset: Optional[dict]) -> s
           <h2>2 · NPW localization calculation</h2>
           <div class="npw">
             X<sub>inlet</sub>&nbsp; = (L − C·Δt) / 2
-            = ({PIPELINE_LENGTH_M:,.0f} − {WAVE_SPEED_MS:,.0f} × {loc.delta_t:+.2f}) / 2
+            = ({ec.length_m:,.0f} − {ec.wave_speed_ms:,.0f} × {loc.delta_t:+.2f}) / 2
             = <b>{loc.x_m:,.0f} m</b> from inlet<br>
             X<sub>outlet</sub> = (L + C·Δt) / 2
-            = ({PIPELINE_LENGTH_M:,.0f} + {WAVE_SPEED_MS:,.0f} × {loc.delta_t:+.2f}) / 2
+            = ({ec.length_m:,.0f} + {ec.wave_speed_ms:,.0f} × {loc.delta_t:+.2f}) / 2
             = <b>{loc.x_from_outlet_m:,.0f} m</b> from outlet<br>
             <span class="dim">cross-check: X<sub>inlet</sub> + X<sub>outlet</sub>
             = {loc.x_m + loc.x_from_outlet_m:,.0f} m = L&nbsp;✓</span>
@@ -225,9 +227,10 @@ def _segment_map(engine: AnalyticsEngine) -> str:
     cells = []
     for s in segs:
         mark = " ⛔" if s["isolated"] else (" ▼ LEAK" if s["leak"] else "")
+        rng = f"{s['lo_m'] / 1000:g}–{s['hi_m'] / 1000:g} km"
         cells.append(
             f"<div class='seg' style='background:{TIER_FILL[s['tier']]}'>"
-            f"S{s['segment']}{mark}<small>{segment_range_label(s['segment'])}"
+            f"S{s['segment']}{mark}<small>{rng}"
             f" · {TIER_LABEL[s['tier']]}</small></div>")
     return f"<div class='seg-map'>{''.join(cells)}</div>"
 

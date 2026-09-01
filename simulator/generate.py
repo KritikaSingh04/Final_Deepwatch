@@ -46,15 +46,17 @@ class ScenarioSpec:
     drift_period_s: float = 0.0     # optional sinusoidal variation period
     drift_amp_bar: float = 0.0
     spike_times: tuple = ()         # single-sample glitches (t, delta_bar, sensor)
+    length_m: float = PIPELINE_LENGTH_M   # engineering/scale scenarios may override
+    wave_speed_ms: float = WAVE_SPEED_MS
     seed: int = 42
 
     @property
     def arrival_in(self) -> float:
-        return self.leak_t_s + self.leak_x_m / WAVE_SPEED_MS
+        return self.leak_t_s + self.leak_x_m / self.wave_speed_ms
 
     @property
     def arrival_out(self) -> float:
-        return self.leak_t_s + (PIPELINE_LENGTH_M - self.leak_x_m) / WAVE_SPEED_MS
+        return self.leak_t_s + (self.length_m - self.leak_x_m) / self.wave_speed_ms
 
 
 def generate(spec: ScenarioSpec):

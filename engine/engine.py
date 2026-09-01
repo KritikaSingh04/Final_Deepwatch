@@ -35,11 +35,11 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .detector import SensorDetector, DetectorConfig, CONFIRMED
-from .forecast import eta_to_thresholds
+from .forecast import forecast_sensor
 from .health import classify, worst, GREEN, YELLOW, ORANGE, RED
 from .mlscore import OnlineAnomalyScorer
-from .npw import (PIPELINE_LENGTH_M, WAVE_SPEED_MS, NUM_SEGMENTS,
-                  Localization, localize)
+from .npw import (PIPELINE_LENGTH_M, WAVE_SPEED_MS, SEGMENT_LENGTH_M,
+                  Localization, localize, segment_bounds)
 
 # engine states, in escalation order
 NORMAL = "NORMAL"
@@ -59,8 +59,9 @@ _SEV_RANK = {None: 0, "LOW": 1, "MAJOR": 2, "CRITICAL": 3}
 
 @dataclass
 class EngineConfig:
-    length_m: float = PIPELINE_LENGTH_M
+    length_m: float = PIPELINE_LENGTH_M      # competition default (locked mode)
     wave_speed_ms: float = WAVE_SPEED_MS
+    segment_len_m: float = SEGMENT_LENGTH_M  # dynamic segments derive from this
     detector: DetectorConfig = field(default_factory=DetectorConfig)
     ratio_window: int = 5            # samples for the sustained-ratio median
     deep_drop: float = 0.80          # deep sustained drop => leak signature
@@ -88,6 +89,7 @@ class AnalyticsEngine:
             "visualize": None, "respond": None,
         }
         self.ml = OnlineAnomalyScorer() if c.enable_ml else None
+        self.ml_unavailable = False
         self._seen_arrival = {"inlet": False, "outlet": False}
         self._ratios = {"inlet": deque(maxlen=c.ratio_window),
                         "outlet": deque(maxlen=c.ratio_window)}
@@ -147,6 +149,7 @@ class AnalyticsEngine:
             dt_nom = max(self.inlet.dt_nominal, self.outlet.dt_nominal)
             loc = localize(self.inlet.arrival_time, self.outlet.arrival_time,
                            c.length_m, c.wave_speed_ms,
+                           segment_len_m=c.segment_len_m,
                            tolerance_m=c.wave_speed_ms * dt_nom / 2)
             if self.stages["analyze"] is None:
                 self.stages["analyze"] = t
@@ -228,23 +231,40 @@ class AnalyticsEngine:
                 alarm=True, segment=self.isolated_segment))
 
         # --- advisory layers ----------------------------------------------
+        # FAILURE-SAFE: the AI layer is a pure observer. Any exception it
+        # raises is swallowed here and it is switched off for the rest of
+        # the run — the deterministic detector, NPW localization, state
+        # machine and isolation logic above have already completed for
+        # this tick and never depend on `ml` in any way.
         ml = None
         if self.ml is not None:
             quiet = (s_in.phase in ("WARMUP", "MONITORING")
                      and s_out.phase in ("WARMUP", "MONITORING")
                      and not any_confirmed)
-            ml = self.ml.update(t, p_in, p_out,
-                                s_in.baseline, s_out.baseline,
-                                training_allowed=quiet)
+            try:
+                ml = self.ml.update(t, p_in, p_out,
+                                    s_in.baseline, s_out.baseline,
+                                    training_allowed=quiet)
+            except Exception:
+                self.ml = None
+                self.ml_unavailable = True
+        if self.ml_unavailable:
+            ml = {"unavailable": True}
 
+        # FAILURE-SAFE, display-only: forecasting runs after the state
+        # machine has fully completed and its result feeds nothing but
+        # the payload — it can never trigger isolation or any transition.
         forecast = None
         if self.state in ALARM_STATES:
-            forecast = {
-                "inlet": eta_to_thresholds(self._forecast_buf["inlet"],
-                                           s_in.baseline),
-                "outlet": eta_to_thresholds(self._forecast_buf["outlet"],
-                                            s_out.baseline),
-            }
+            try:
+                forecast = {
+                    "inlet": forecast_sensor(self._forecast_buf["inlet"],
+                                             s_in.baseline),
+                    "outlet": forecast_sensor(self._forecast_buf["outlet"],
+                                              s_out.baseline),
+                }
+            except Exception:
+                forecast = None
 
         self.events.extend(new_events)
         return {
@@ -266,20 +286,24 @@ class AnalyticsEngine:
 
     # ------------------------------------------------------------------
     def _segment_states(self, global_tier: str) -> list[dict]:
-        """Segment display states.
+        """Segment display states over the ACTIVE dynamic segment scheme.
 
         Only the two boundary sensors physically measure pressure, so all
         segments carry the GLOBAL line health (worst sensor tier) rather
         than pretending per-segment measurements exist. The calculated
         leak segment and the isolated segment are flagged on top.
         """
+        c = self.config
         leak_seg = self.localization.segment if self.localization else None
+        bounds = segment_bounds(c.length_m, c.segment_len_m)
         return [{
             "segment": i,
+            "lo_m": lo,
+            "hi_m": hi,
             "tier": global_tier,
             "leak": leak_seg == i and self.state in ALARM_STATES,
             "isolated": self.state == ISOLATED and self.isolated_segment == i,
-        } for i in range(1, NUM_SEGMENTS + 1)]
+        } for i, (lo, hi) in enumerate(bounds, start=1)]
 
     def _leak_payload(self) -> Optional[dict]:
         if self.localization_invalid:
@@ -321,6 +345,7 @@ def _sensor_payload(status, health) -> dict:
         "baseline": round(status.baseline, 3),
         "ratio": round(status.ratio, 4),
         "sigma": round(status.sigma, 4),
+        "rate": round(status.rate, 3),
         "rate_sigma": round(status.rate_sigma, 4),
         "cusum": round(status.cusum, 2),
         "rate_threshold": round(status.rate_threshold, 3),  # bar/s

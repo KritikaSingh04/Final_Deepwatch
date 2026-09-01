@@ -1,4 +1,6 @@
-/* 2D pipeline schematic — SVG, five standardized logical segments. */
+/* 2D pipeline schematic — SVG, dynamic logical segments.
+   Rebuilt whenever the active pipeline configuration changes
+   (competition: 5 × 2 km; engineering mode: any L / segment size). */
 
 import { leakCardHtml } from "/static/leakcard.js";
 
@@ -6,35 +8,55 @@ const TIER = {
   GREEN: "var(--good)", YELLOW: "var(--warn)",
   ORANGE: "var(--serious)", RED: "var(--crit)",
 };
-const TIER_LABEL = { GREEN: "Healthy", YELLOW: "Caution", ORANGE: "Degraded", RED: "Critical" };
-
 const W = 1000, H = 168, PIPE_X0 = 92, PIPE_X1 = 908, PIPE_Y = 78, PIPE_H = 24;
 
-export function initSchematic(container, lengthM) {
-  const segW = (PIPE_X1 - PIPE_X0) / 5;
+export function initSchematic(container, cfg) {
+  const lengthM = cfg.length_m;
+  const segLenM = cfg.segment_len_m;
+  const nSeg = cfg.num_segments;
   const xOf = (m) => PIPE_X0 + (m / lengthM) * (PIPE_X1 - PIPE_X0);
+  const km = (m) => +(m / 1000).toFixed(2);
+
+  // segment boundaries (final segment absorbs any remainder)
+  const bounds = [];
+  for (let i = 0; i < nSeg; i++) {
+    const lo = i * segLenM;
+    const hi = i === nSeg - 1 ? lengthM : Math.min((i + 1) * segLenM, lengthM);
+    bounds.push([lo, hi]);
+  }
 
   let segs = "", segLabels = "", ticks = "";
-  for (let i = 0; i < 5; i++) {
-    const x = PIPE_X0 + i * segW;
-    segs += `<rect id="sk-seg-${i + 1}" x="${x + 2}" y="${PIPE_Y}" width="${segW - 4}"
-      height="${PIPE_H}" rx="5" fill="var(--good)" stroke="rgba(0,0,0,.35)"/>
-      <text id="sk-segtxt-${i + 1}" x="${x + segW / 2}" y="${PIPE_Y + PIPE_H / 2 + 3.5}"
-      text-anchor="middle" font-size="10.5" font-weight="700" fill="#08140a">S${i + 1}</text>`;
-    segLabels += `<text id="sk-seglbl-${i + 1}" x="${x + segW / 2}" y="${PIPE_Y + PIPE_H + 16}"
-      text-anchor="middle" font-size="9" fill="#7e8ea6">${i * 2}–${i * 2 + 2} km</text>`;
-  }
-  for (let km = 0; km <= 10; km += 2) {
-    const x = xOf(km * 1000);
+  const showSegText = nSeg <= 14;
+  bounds.forEach(([lo, hi], i) => {
+    const x0 = xOf(lo), x1 = xOf(hi);
+    segs += `<rect id="sk-seg-${i + 1}" x="${x0 + 2}" y="${PIPE_Y}"
+      width="${Math.max(x1 - x0 - 4, 2)}" height="${PIPE_H}" rx="5"
+      fill="var(--good)" stroke="rgba(0,0,0,.35)"/>` +
+      (showSegText ? `<text id="sk-segtxt-${i + 1}" x="${(x0 + x1) / 2}"
+        y="${PIPE_Y + PIPE_H / 2 + 3.5}" text-anchor="middle" font-size="10.5"
+        font-weight="700" fill="#08140a">S${i + 1}</text>` : "");
+    if (showSegText) {
+      segLabels += `<text id="sk-seglbl-${i + 1}" x="${(x0 + x1) / 2}"
+        y="${PIPE_Y + PIPE_H + 16}" text-anchor="middle" font-size="9"
+        fill="#7e8ea6">${km(lo)}–${km(hi)} km</text>`;
+    }
+  });
+  // boundary tick labels, thinned when there are many segments
+  const step = Math.max(1, Math.ceil((nSeg + 1) / 11));
+  for (let i = 0; i <= nSeg; i++) {
+    const m = i === nSeg ? lengthM : Math.min(i * segLenM, lengthM);
+    const x = xOf(m);
     ticks += `<line x1="${x}" y1="${PIPE_Y - 10}" x2="${x}" y2="${PIPE_Y - 4}"
-      stroke="#2c3b57"/><text x="${x}" y="${PIPE_Y - 15}" text-anchor="middle"
-      font-size="8.5" fill="#7e8ea6">${km} km</text>`;
+      stroke="#2c3b57"/>`;
+    if (i % step === 0 || i === nSeg) {
+      ticks += `<text x="${x}" y="${PIPE_Y - 15}" text-anchor="middle"
+        font-size="8.5" fill="#7e8ea6">${km(m)} km</text>`;
+    }
   }
 
   container.innerHTML = `
   <svg viewBox="0 0 ${W} ${H}" font-family="system-ui, sans-serif" role="img"
-       aria-label="Pipeline schematic with five segments">
-    <!-- inlet / outlet stations -->
+       aria-label="Pipeline schematic with ${nSeg} segments">
     <g>
       <rect x="26" y="${PIPE_Y - 18}" width="58" height="60" rx="7"
             fill="#16233a" stroke="rgba(148,178,224,.25)"/>
@@ -64,11 +86,9 @@ export function initSchematic(container, lengthM) {
 
     ${ticks}${segs}${segLabels}
 
-    <!-- flow arrows -->
     <text x="${PIPE_X0 + 8}" y="${PIPE_Y + PIPE_H + 34}" font-size="9"
           fill="#7e8ea6">flow →</text>
 
-    <!-- isolation valves (hidden until isolation) -->
     <g id="sk-valve-l" visibility="hidden">
       <rect x="-9" y="${PIPE_Y - 7}" width="18" height="${PIPE_H + 14}" rx="3"
             fill="#4a1616" stroke="var(--crit)" stroke-width="1.5"/>
@@ -85,7 +105,6 @@ export function initSchematic(container, lengthM) {
           text-anchor="middle" font-size="9.5" font-weight="800"
           fill="var(--crit)" letter-spacing="1.5">⛔ SEGMENT ISOLATED</text>
 
-    <!-- leak marker -->
     <g id="sk-leak" visibility="hidden">
       <circle id="sk-leak-pulse" cy="${PIPE_Y + PIPE_H / 2}" r="10"
               fill="none" stroke="var(--crit)" stroke-width="2">
@@ -98,7 +117,6 @@ export function initSchematic(container, lengthM) {
     </g>
   </svg>`;
 
-  // dual-ended hover card anchored near the leak pin
   const card = document.createElement("div");
   card.className = "leak-card";
   card.hidden = true;
@@ -107,9 +125,9 @@ export function initSchematic(container, lengthM) {
 
   const $ = (id) => container.querySelector("#" + id);
   const els = {
-    segs: [1, 2, 3, 4, 5].map((i) => $(`sk-seg-${i}`)),
-    segTxt: [1, 2, 3, 4, 5].map((i) => $(`sk-segtxt-${i}`)),
-    segLbl: [1, 2, 3, 4, 5].map((i) => $(`sk-seglbl-${i}`)),
+    segs: bounds.map((_, i) => $(`sk-seg-${i + 1}`)),
+    segTxt: bounds.map((_, i) => $(`sk-segtxt-${i + 1}`)),
+    segLbl: bounds.map((_, i) => $(`sk-seglbl-${i + 1}`)),
     leak: $("sk-leak"), leakPin: $("sk-leak-pin"), leakPulse: $("sk-leak-pulse"),
     leakTxt: $("sk-leak-txt"), valveL: $("sk-valve-l"), valveR: $("sk-valve-r"),
     isoLbl: $("sk-iso-lbl"), tin: $("sk-tin"), tout: $("sk-tout"),
@@ -126,18 +144,26 @@ export function initSchematic(container, lengthM) {
   });
   els.leak.addEventListener("mouseleave", () => { card.hidden = true; });
 
+  const fmtM = (m) => lengthM > 20000
+    ? (m / 1000).toFixed(2) + " km"
+    : Math.round(m).toLocaleString() + " m";
+
   return {
     update(state) {
-      // state: {segments:[{tier,leak,iso}], leak, isolated, tIn, tOut}
       // segment colour = GLOBAL line health (engine sends a uniform tier);
       // labels only flag the calculated leak / isolated segment
       (state.segments || []).forEach((s, i) => {
+        if (!els.segs[i]) return;
         els.segs[i].setAttribute("fill", TIER[s.tier] || TIER.GREEN);
-        els.segTxt[i].setAttribute("fill", darkText[s.tier] || "#08140a");
-        const km = `${i * 2}–${i * 2 + 2} km`;
-        els.segLbl[i].textContent =
-          km + (s.iso ? " · ISOLATED" : s.leak ? " · LEAK (calculated)" : "");
-        els.segLbl[i].setAttribute("fill", s.iso || s.leak ? "var(--crit)" : "#7e8ea6");
+        if (els.segTxt[i]) {
+          els.segTxt[i].setAttribute("fill", darkText[s.tier] || "#08140a");
+        }
+        if (els.segLbl[i]) {
+          const rng = `${km(s.lo ?? bounds[i][0])}–${km(s.hi ?? bounds[i][1])} km`;
+          els.segLbl[i].textContent =
+            rng + (s.iso ? " · ISOLATED" : s.leak ? " · LEAK (calculated)" : "");
+          els.segLbl[i].setAttribute("fill", s.iso || s.leak ? "var(--crit)" : "#7e8ea6");
+        }
       });
       els.tin.textContent = state.tIn != null ? `t_in ${state.tIn.toFixed(2)} s` : "";
       els.tout.textContent = state.tOut != null ? `t_out ${state.tOut.toFixed(2)} s` : "";
@@ -150,17 +176,17 @@ export function initSchematic(container, lengthM) {
         els.leakPin.setAttribute("transform", `translate(${x} ${PIPE_Y - 3})`);
         els.leakTxt.setAttribute("x", Math.min(Math.max(x, 195), W - 195));
         els.leakTxt.textContent =
-          `LEAK · ${Math.round(state.leak.x_m).toLocaleString()} m from inlet · ` +
-          `${Math.round(state.leak.x_out_m).toLocaleString()} m from outlet`;
+          `LEAK · ${fmtM(state.leak.x_m)} from inlet · ` +
+          `${fmtM(state.leak.x_out_m)} from outlet`;
       } else {
         leakInfo = null;
         card.hidden = true;
         els.leak.setAttribute("visibility", "hidden");
       }
 
-      if (state.isolated && state.leak) {
-        const seg = state.leak.segment;
-        const xa = xOf((seg - 1) * 2000), xb = xOf(seg * 2000);
+      if (state.isolated && state.leak && state.leak.segment) {
+        const [lo, hi] = bounds[state.leak.segment - 1] || [0, lengthM];
+        const xa = xOf(lo), xb = xOf(hi);
         els.valveL.setAttribute("transform", `translate(${xa} 0)`);
         els.valveR.setAttribute("transform", `translate(${xb} 0)`);
         els.valveL.setAttribute("visibility", "visible");

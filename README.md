@@ -41,6 +41,24 @@ results table shows leak detected, t_in, t_out, Δt, X, segment, detection
 latency, critical reached and isolation executed. Internal testing only; the
 streaming demo is unaffected.
 
+## Operating modes
+
+- **🔒 Competition Mode (default)** — locked official parameters
+  (L = 10,000 m · C = 1,000 m/s · 5 segments × 2,000 m), used for all
+  official blind datasets. Batch/blind evaluation always runs with these.
+- **⚙ Engineering / Scale Mode** — via the header mode chip: any pipeline
+  length (km), wave speed (m/s) and segment size (km). Segments are
+  generated dynamically (ceil(L/segment); the final segment absorbs any
+  remainder) and the identical unmodified analytics apply. Physical timing
+  validation |Δt| ≤ L/C follows the active configuration; violations show
+  "INVALID LOCALIZATION — timing inconsistent with configured pipeline".
+  Try `sample_scale_100km_leak63km.csv` in 100 km / 20 km mode.
+
+The main view prioritizes detection → localization → signal quality →
+response; the raw pressure charts, AI percentile diagnostics and raw
+calculations live in the collapsible "Telemetry / Engineering Detail"
+section.
+
 ## Event state machine
 
 ```

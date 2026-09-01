@@ -12,12 +12,19 @@
 </head>
 <body>
 
+<div id="sea-bg" aria-hidden="true">
+  <div class="sea-layer sea-grad"></div>
+  <div class="sea-layer sea-haze"></div>
+  <div class="sea-layer sea-rays"></div>
+  <div class="sea-layer sea-particles"></div>
+</div>
+
 <header id="topbar">
   <div class="brand">
     <div class="brand-mark">DW</div>
     <div>
       <div class="brand-name">DEEPWATCH</div>
-      <div class="brand-sub">Subsea Pipeline Integrity Twin · L 10,000 m · C 1,000 m/s</div>
+      <div class="brand-sub" id="param-sub">Subsea Pipeline Integrity Twin</div>
     </div>
   </div>
 
@@ -26,6 +33,7 @@
   </div>
 
   <div class="topbar-right">
+    <button id="mode-chip" class="mode-chip" title="Operating mode">🔒 COMPETITION — locked</button>
     <div class="clockbox">
       <div class="clock-label">TELEMETRY T+</div>
       <div id="sim-clock" class="clock">00:00.0</div>
@@ -51,6 +59,7 @@
     <input type="file" id="upload-input" accept=".csv,.xlsx,.xls" hidden>
     <button id="batch-btn" class="ctl" title="Developer mode: evaluate multiple files offline (does not affect the streaming demo)">⚙ Batch eval</button>
     <input type="file" id="batch-input" accept=".csv,.xlsx,.xls" multiple hidden>
+    <button id="history-btn" class="ctl" title="Event history of completed runs (write-after log — never used by detection)">🗂 History</button>
     <span class="sep"></span>
     <button id="play-btn" class="ctl primary">▶ Stream</button>
     <button id="reset-btn" class="ctl">⟲ Reset</button>
@@ -79,39 +88,87 @@
     </div>
 
     <div class="panel">
-      <div class="panel-head"><span>PIPELINE SCHEMATIC — 5 LOGICAL SEGMENTS</span>
+      <div class="panel-head"><span id="schematic-title">PIPELINE SCHEMATIC</span>
         <span class="panel-side" id="ref-flag-note"></span></div>
       <div id="schematic"></div>
     </div>
 
-    <div class="charts-row">
-      <div class="panel chart-panel">
-        <div class="panel-head"><span><i class="sw" style="background:var(--inlet)"></i>INLET PRESSURE — PT-001 (bar)</span>
-          <span class="panel-side" id="inlet-chart-side"></span></div>
-        <div class="chart-wrap"><canvas id="chart-inlet"></canvas><div class="chart-tip" id="tip-inlet"></div></div>
-      </div>
-      <div class="panel chart-panel">
-        <div class="panel-head"><span><i class="sw" style="background:var(--outlet)"></i>OUTLET PRESSURE — PT-002 (bar)</span>
-          <span class="panel-side" id="outlet-chart-side"></span></div>
-        <div class="chart-wrap"><canvas id="chart-outlet"></canvas><div class="chart-tip" id="tip-outlet"></div></div>
+    <div class="panel" id="asq-panel">
+      <div class="panel-head"><span>ADAPTIVE SIGNAL QUALITY — NOISE-SCALED DETECTION</span>
+        <span class="panel-side">all trip levels derive from live noise measurement</span></div>
+      <div class="asq-grid">
+        <div class="asq-card" id="asq-inlet">
+          <div class="asq-head">
+            <span><i class="sw" style="background:var(--inlet)"></i>INLET · PT-001</span>
+            <span class="asq-state" id="asq-in-state">—</span>
+          </div>
+          <div class="asq-main">
+            <div class="asq-big"><label>PRESSURE</label>
+              <b id="asq-in-p">—</b><small> bar</small></div>
+            <div class="asq-big"><label>% OF BASELINE</label>
+              <b id="asq-in-ratio">—</b><span class="tier-chip" id="asq-in-tier">—</span></div>
+            <div class="asq-big"><label>dP/dt</label>
+              <b id="asq-in-dp">—</b><small> bar/s</small></div>
+          </div>
+          <div class="asq-row">
+            <div><label>learned baseline</label><b id="asq-in-base">—</b></div>
+            <div><label>deviation</label><b id="asq-in-dev">—</b></div>
+            <div><label>noise σ (MAD)</label><b id="asq-in-sig">—</b></div>
+            <div><label>adaptive trigger</label><b id="asq-in-thr">—</b></div>
+          </div>
+        </div>
+        <div class="asq-card" id="asq-outlet">
+          <div class="asq-head">
+            <span><i class="sw" style="background:var(--outlet)"></i>OUTLET · PT-002</span>
+            <span class="asq-state" id="asq-out-state">—</span>
+          </div>
+          <div class="asq-main">
+            <div class="asq-big"><label>PRESSURE</label>
+              <b id="asq-out-p">—</b><small> bar</small></div>
+            <div class="asq-big"><label>% OF BASELINE</label>
+              <b id="asq-out-ratio">—</b><span class="tier-chip" id="asq-out-tier">—</span></div>
+            <div class="asq-big"><label>dP/dt</label>
+              <b id="asq-out-dp">—</b><small> bar/s</small></div>
+          </div>
+          <div class="asq-row">
+            <div><label>learned baseline</label><b id="asq-out-base">—</b></div>
+            <div><label>deviation</label><b id="asq-out-dev">—</b></div>
+            <div><label>noise σ (MAD)</label><b id="asq-out-sig">—</b></div>
+            <div><label>adaptive trigger</label><b id="asq-out-thr">—</b></div>
+          </div>
+        </div>
       </div>
     </div>
+
+    <details class="panel eng-detail" id="eng-detail">
+      <summary>TELEMETRY / ENGINEERING DETAIL — pressure charts · AI diagnostics · raw calculations</summary>
+      <div class="eng-detail-body">
+        <div class="charts-row">
+          <div class="chart-panel">
+            <div class="panel-head"><span><i class="sw" style="background:var(--inlet)"></i>INLET PRESSURE — PT-001 (bar)</span>
+              <span class="panel-side" id="inlet-chart-side"></span></div>
+            <div class="chart-wrap"><canvas id="chart-inlet"></canvas><div class="chart-tip" id="tip-inlet"></div></div>
+          </div>
+          <div class="chart-panel">
+            <div class="panel-head"><span><i class="sw" style="background:var(--outlet)"></i>OUTLET PRESSURE — PT-002 (bar)</span>
+              <span class="panel-side" id="outlet-chart-side"></span></div>
+            <div class="chart-wrap"><canvas id="chart-outlet"></canvas><div class="chart-tip" id="tip-outlet"></div></div>
+          </div>
+        </div>
+        <div class="eng-ai" title="AI provides independent anomaly corroboration; safety-critical detection and localization remain deterministic and physics-based.">
+          <div class="eng-ai-head"><span>AI DIAGNOSTICS (advisory)</span>
+            <span class="panel-side" id="ml-mode">AI layer: training on stable baseline window…</span></div>
+          <div class="bar"><div class="bar-mark"></div><div class="bar-fill" id="ml-bar"></div><span class="bar-val" id="ml-val">—</span></div>
+          <div class="ai-note">Raw anomaly percentile vs the frozen baseline
+          distribution (p95 advisory line). Advisory only — the deterministic
+          pressure-transient detector, adaptive noise statistics and NPW physics
+          are the primary signals.</div>
+        </div>
+      </div>
+    </details>
   </section>
 
   <section class="col-right">
-    <div class="kpi-row">
-      <div class="kpi" id="kpi-inlet">
-        <div class="kpi-head"><i class="sw" style="background:var(--inlet)"></i>INLET PT-001</div>
-        <div class="kpi-value"><span id="kpi-inlet-p">—</span><small> bar</small></div>
-        <div class="kpi-foot"><span id="kpi-inlet-ratio">—</span><span class="tier-chip" id="kpi-inlet-tier">—</span></div>
-      </div>
-      <div class="kpi" id="kpi-outlet">
-        <div class="kpi-head"><i class="sw" style="background:var(--outlet)"></i>OUTLET PT-002</div>
-        <div class="kpi-value"><span id="kpi-outlet-p">—</span><small> bar</small></div>
-        <div class="kpi-foot"><span id="kpi-outlet-ratio">—</span><span class="tier-chip" id="kpi-outlet-tier">—</span></div>
-      </div>
-    </div>
-
     <div class="panel" id="npw-panel">
       <div class="panel-head"><span>NPW LEAK LOCALIZATION</span>
         <span class="panel-side">X = (L − C·Δt) / 2</span></div>
@@ -137,6 +194,11 @@
         <div class="npw-warn" id="npw-warn" hidden>⚠ Localization consistency warning —
           X<sub>in</sub> + X<sub>out</sub> ≠ L within tolerance</div>
       </div>
+      <div class="ai-strip" title="AI provides independent anomaly corroboration; safety-critical detection and localization remain deterministic and physics-based.">
+        AI corroboration:
+        <b id="ai-status" class="ai-status">—</b>
+        <span class="ai-strip-note">deterministic detector + NPW physics are primary</span>
+      </div>
       <div class="npw-eq mono" id="npw-eq"></div>
       <details class="npw-eng" id="npw-eng">
         <summary>Engineering details</summary>
@@ -151,31 +213,9 @@
       </details>
     </div>
 
-    <div class="panel" id="edge-panel">
-      <div class="panel-head"><span>EDGE ANALYTICS — ADAPTIVE THRESHOLDS</span>
-        <span class="panel-side" id="ml-mode">AI layer: calibrating…</span></div>
-      <div class="edge-grid">
-        <div>
-          <label>AI anomaly percentile <span class="hint">(vs frozen baseline distribution · p95 advisory line)</span></label>
-          <div class="bar"><div class="bar-mark"></div><div class="bar-fill" id="ml-bar"></div><span class="bar-val" id="ml-val">—</span></div>
-          <div class="ai-note">Advisory only — the deterministic pressure-transient
-          detector remains the primary safety signal. Trained once on the stable
-          baseline window, then frozen.</div>
-        </div>
-        <div class="edge-cols">
-          <div><label>baseline PT-001 · stable window</label><b class="mono" id="base-in">—</b></div>
-          <div><label>baseline PT-002 · stable window</label><b class="mono" id="base-out">—</b></div>
-          <div><label>σ noise inlet</label><b class="mono" id="sig-in">—</b></div>
-          <div><label>σ noise outlet</label><b class="mono" id="sig-out">—</b></div>
-          <div><label>trip level inlet</label><b class="mono" id="thr-in">—</b></div>
-          <div><label>trip level outlet</label><b class="mono" id="thr-out">—</b></div>
-        </div>
-      </div>
-    </div>
-
     <div class="panel" id="forecast-panel">
-      <div class="panel-head"><span>PREDICTIVE DECAY FORECAST</span>
-        <span class="panel-side">time-to-threshold</span></div>
+      <div class="panel-head"><span>PREDICTIVE PRESSURE DECAY</span>
+        <span class="panel-side">Trend-based estimate — advisory</span></div>
       <div id="forecast-body" class="forecast-idle">no active leak — forecasting armed</div>
     </div>
 
@@ -185,7 +225,8 @@
       <div id="event-log"></div>
     </div>
 
-    <button id="report-btn" class="report-btn" disabled>⬇ GENERATE INCIDENT REPORT</button>
+    <button id="report-btn" class="report-btn" disabled>⬇ INCIDENT REPORT (PDF)</button>
+    <a class="report-alt" href="/api/report" target="_blank">HTML version</a>
   </section>
 </main>
 
@@ -199,14 +240,72 @@
     </div>
     <div class="batch-note">Internal testing only. Each file or worksheet is
     processed independently through the production inference path (a brand-new
-    engine per scenario, no ground truth involved). The main streaming demo is
-    unaffected.</div>
+    engine per scenario, competition parameters, no ground truth involved).
+    The main streaming demo is unaffected.</div>
     <div class="batch-toolbar">
       <button id="batch-files-btn" class="ctl">📁 Choose files…</button>
       <button id="batch-sheets-btn" class="ctl primary">▶ Run all blind sheets</button>
       <span id="batch-workbook-note" class="batch-wb-note"></span>
     </div>
     <div id="batch-body"></div>
+  </div>
+</div>
+
+<div id="history-modal" hidden>
+  <div class="batch-card">
+    <div class="batch-head">
+      <span>EVENT HISTORY — COMPLETED RUNS</span>
+      <span style="display:flex;gap:8px;align-items:center">
+        <button id="history-clear" class="ctl" title="Delete the local history log">🗑 Clear</button>
+        <button id="history-close" class="icon-btn" title="Close">✕</button>
+      </span>
+    </div>
+    <div class="batch-note">Write-after operational log of finished runs.
+    Historical data is never read by detection — it cannot influence current
+    blind-dataset analysis. No ground truth is stored.</div>
+    <div id="history-body"></div>
+  </div>
+</div>
+
+<div id="mode-modal" hidden>
+  <div class="batch-card mode-card">
+    <div class="batch-head">
+      <span>OPERATING MODE</span>
+      <button id="mode-close" class="icon-btn" title="Close">✕</button>
+    </div>
+    <div class="mode-body">
+      <label class="mode-option">
+        <input type="radio" name="mode" value="competition" id="mode-comp" checked>
+        <div>
+          <b>🔒 COMPETITION MODE</b>
+          <div class="mode-desc">Competition parameters — locked. Used for all
+          official blind datasets:<br>
+          <span class="mono">L = 10,000 m · C = 1,000 m/s · 5 segments × 2,000 m</span></div>
+        </div>
+      </label>
+      <label class="mode-option">
+        <input type="radio" name="mode" value="engineering" id="mode-eng">
+        <div>
+          <b>⚙ ENGINEERING / SCALE MODE</b>
+          <div class="mode-desc">Apply the same unmodified analytics to any
+          pipeline. Segments are generated dynamically
+          (final segment absorbs any remainder).</div>
+          <div class="mode-inputs">
+            <div><label>Pipeline length (km)</label>
+              <input type="number" id="mode-length" value="100" min="0.1" max="10000" step="0.1"></div>
+            <div><label>Wave speed (m/s)</label>
+              <input type="number" id="mode-wave" value="1000" min="50" max="5000" step="10"></div>
+            <div><label>Segment size (km)</label>
+              <input type="number" id="mode-segment" value="20" min="0.05" step="0.05"></div>
+          </div>
+          <div class="mode-preview mono" id="mode-preview"></div>
+        </div>
+      </label>
+      <div class="mode-actions">
+        <button id="mode-apply" class="ctl primary">Apply mode</button>
+        <span class="mode-note">switching modes resets the current run</span>
+      </div>
+    </div>
   </div>
 </div>
 

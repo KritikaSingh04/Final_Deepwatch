@@ -112,6 +112,7 @@ class SensorStatus:
     baseline: float
     ratio: float
     sigma: float
+    rate: float                  # current dP/dt, bar/s (actual spacing)
     rate_sigma: float            # bar/s
     rate_threshold: float        # bar/s
     cusum: float
@@ -155,11 +156,13 @@ class SensorDetector:
 
     # ------------------------------------------------------------------
     def update(self, t: float, p: float) -> SensorStatus:
+        cur_rate = 0.0
         if self._prev is not None:
             gap = t - self._prev[0]
             if gap > 0:
                 self._gaps.append(gap)
                 self.dt_nominal = _median(self._gaps)
+                cur_rate = (p - self._prev[1]) / gap
 
         self._recent.append((t, p))
         if self.phase == WARMUP:
@@ -179,6 +182,7 @@ class SensorDetector:
             baseline=baseline,
             ratio=ratio,
             sigma=self.sigma,
+            rate=cur_rate,
             rate_sigma=self.rate_sigma,
             rate_threshold=self._rate_threshold(),
             cusum=self._cusum,
