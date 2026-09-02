@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: deepwatch
+    env: python
+    region: oregon
+    plan: free
+    branch: ui-antigravity
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server.app:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
