@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DEEPWATCH — Subsea Pipeline Integrity Twin</title>
-<link rel="stylesheet" href="/static/style.css?v=dev15">
+<link rel="stylesheet" href="/static/style.css?v=dev16">
 <script type="importmap">
   {"imports": {"three": "/static/vendor/three.module.min.js",
                "three/addons/controls/OrbitControls.js": "/static/vendor/OrbitControls.js"}}
@@ -75,7 +75,7 @@
         <span>3D Digital Twin — Offshore Production Manifold → Receiving Terminal</span>
         <span class="panel-side" id="twin-hint">drag to orbit · scroll to zoom</span>
       </div>
-      <div id="viewport"></div>
+      <div id="viewport"><div id="viewport-caustics" aria-hidden="true"></div></div>
       <div id="twin-legend">
         <span><i class="sw" style="background:var(--good)"></i>Healthy ≥95%</span>
         <span><i class="sw" style="background:var(--warn)"></i>Caution 80–95%</span>
