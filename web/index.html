@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DEEPWATCH — Subsea Pipeline Integrity Twin</title>
-<link rel="stylesheet" href="/static/style.css?v=dev11">
+<link rel="stylesheet" href="/static/style.css?v=dev13">
 <script type="importmap">
   {"imports": {"three": "/static/vendor/three.module.min.js",
                "three/addons/controls/OrbitControls.js": "/static/vendor/OrbitControls.js"}}
@@ -43,21 +43,21 @@
 </header>
 
 <div id="stepper">
-  <div class="step" data-step="detect"><span class="step-dot"></span>DETECT<span class="step-t"></span></div>
+  <div class="step" data-step="detect"><span class="step-dot"></span>Detect<span class="step-t"></span></div>
   <div class="step-link"></div>
-  <div class="step" data-step="analyze"><span class="step-dot"></span>ANALYZE<span class="step-t"></span></div>
+  <div class="step" data-step="analyze"><span class="step-dot"></span>Analyze<span class="step-t"></span></div>
   <div class="step-link"></div>
-  <div class="step" data-step="localize"><span class="step-dot"></span>LOCALIZE<span class="step-t"></span></div>
+  <div class="step" data-step="localize"><span class="step-dot"></span>Localize<span class="step-t"></span></div>
   <div class="step-link"></div>
-  <div class="step" data-step="visualize"><span class="step-dot"></span>VISUALIZE<span class="step-t"></span></div>
+  <div class="step" data-step="visualize"><span class="step-dot"></span>Visualize<span class="step-t"></span></div>
   <div class="step-link"></div>
-  <div class="step" data-step="respond"><span class="step-dot"></span>RESPOND<span class="step-t"></span></div>
+  <div class="step" data-step="respond"><span class="step-dot"></span>Respond<span class="step-t"></span></div>
 
   <div id="transport">
     <select id="dataset-select" title="Dataset"></select>
-    <button id="upload-btn" class="ctl" title="Upload a blind dataset (.csv/.xlsx)">⬆ Blind dataset</button>
+    <button id="upload-btn" class="ctl" title="Upload a blind dataset (.csv/.xlsx)">⬆ Blind Dataset</button>
     <input type="file" id="upload-input" accept=".csv,.xlsx,.xls" hidden>
-    <button id="batch-btn" class="ctl" title="Developer mode: evaluate multiple files offline (does not affect the streaming demo)">⚙ Batch eval</button>
+    <button id="batch-btn" class="ctl" title="Developer mode: evaluate multiple files offline (does not affect the streaming demo)">⚙ Batch Eval</button>
     <input type="file" id="batch-input" accept=".csv,.xlsx,.xls" multiple hidden>
     <button id="history-btn" class="ctl" title="Event history of completed runs (write-after log — never used by detection)">🗂 History</button>
     <span class="sep"></span>
@@ -72,7 +72,7 @@
   <section class="col-left">
     <div class="panel" id="viewport-panel">
       <div class="panel-head">
-        <span>3D digital twin — offshore production manifold → receiving terminal</span>
+        <span>3D Digital Twin — Offshore Production Manifold → Receiving Terminal</span>
         <span class="panel-side" id="twin-hint">drag to orbit · scroll to zoom</span>
       </div>
       <div id="viewport"></div>
@@ -88,13 +88,13 @@
     </div>
 
     <div class="panel">
-      <div class="panel-head"><span id="schematic-title">Pipeline schematic</span>
+      <div class="panel-head"><span id="schematic-title">Pipeline Schematic</span>
         <span class="panel-side" id="ref-flag-note"></span></div>
       <div id="schematic"></div>
     </div>
 
     <div class="panel" id="asq-panel">
-      <div class="panel-head"><span>Adaptive signal quality — noise-scaled detection</span>
+      <div class="panel-head"><span>Adaptive Signal Quality — Noise-Scaled Detection</span>
         <span class="panel-side">all trip levels derive from live noise measurement</span></div>
       <div class="asq-grid">
         <div class="asq-card" id="asq-inlet">
@@ -141,22 +141,22 @@
     </div>
 
     <details class="panel eng-detail" id="eng-detail">
-      <summary>Telemetry / engineering detail — pressure charts · AI diagnostics · raw calculations</summary>
+      <summary>Telemetry / Engineering Detail — Pressure Charts · AI Diagnostics · Raw Calculations</summary>
       <div class="eng-detail-body">
         <div class="charts-row">
           <div class="chart-panel">
-            <div class="panel-head"><span><i class="sw" style="background:var(--inlet)"></i>Inlet pressure — PT-001 (bar)</span>
+            <div class="panel-head"><span><i class="sw" style="background:var(--inlet)"></i>Inlet Pressure — PT-001 (bar)</span>
               <span class="panel-side" id="inlet-chart-side"></span></div>
             <div class="chart-wrap"><canvas id="chart-inlet"></canvas><div class="chart-tip" id="tip-inlet"></div></div>
           </div>
           <div class="chart-panel">
-            <div class="panel-head"><span><i class="sw" style="background:var(--outlet)"></i>Outlet pressure — PT-002 (bar)</span>
+            <div class="panel-head"><span><i class="sw" style="background:var(--outlet)"></i>Outlet Pressure — PT-002 (bar)</span>
               <span class="panel-side" id="outlet-chart-side"></span></div>
             <div class="chart-wrap"><canvas id="chart-outlet"></canvas><div class="chart-tip" id="tip-outlet"></div></div>
           </div>
         </div>
         <div class="eng-ai" title="AI provides independent anomaly corroboration; safety-critical detection and localization remain deterministic and physics-based.">
-          <div class="eng-ai-head"><span>AI diagnostics (advisory)</span>
+          <div class="eng-ai-head"><span>AI Diagnostics (Advisory)</span>
             <span class="panel-side" id="ml-mode">AI layer: training on stable baseline window…</span></div>
           <div class="bar"><div class="bar-mark"></div><div class="bar-fill" id="ml-bar"></div><span class="bar-val" id="ml-val">—</span></div>
           <div class="ai-note">Raw anomaly percentile vs the frozen baseline
@@ -170,7 +170,7 @@
 
   <section class="col-right">
     <div class="panel" id="npw-panel">
-      <div class="panel-head"><span>NPW localization</span>
+      <div class="panel-head"><span>NPW Localization</span>
         <span class="panel-side">X = (L − C·Δt) / 2</span></div>
       <div class="npw-grid">
         <div class="npw-cell"><label>t<sub>in</sub></label><b id="npw-tin">—</b></div>
@@ -179,7 +179,7 @@
         <div class="npw-cell"><label>severity</label><b id="npw-sev">—</b></div>
       </div>
       <div id="npw-x-box">
-        <div class="npw-x-label">Leak location</div>
+        <div class="npw-x-label">Leak Location</div>
         <div class="npw-dual" id="npw-dual">
           <div class="npw-x-row">
             <span class="npw-x-val" id="npw-x-in">— —</span>
@@ -195,13 +195,13 @@
           X<sub>in</sub> + X<sub>out</sub> ≠ L within tolerance</div>
       </div>
       <div class="ai-strip" title="AI provides independent anomaly corroboration; safety-critical detection and localization remain deterministic and physics-based.">
-        AI corroboration:
+        AI Corroboration:
         <b id="ai-status" class="ai-status">—</b>
         <span class="ai-strip-note">deterministic detector + NPW physics are primary</span>
       </div>
       <div class="npw-eq mono" id="npw-eq"></div>
       <details class="npw-eng" id="npw-eng">
-        <summary>Engineering details</summary>
+        <summary>Engineering Details</summary>
         <div class="npw-eng-body">
           <div><label>t_event · estimated leak-origin time<br>
             <span class="hint">(t_in + t_out − L/C) / 2 — diagnostic only</span></label>
@@ -214,18 +214,18 @@
     </div>
 
     <div class="panel" id="forecast-panel">
-      <div class="panel-head"><span>Predictive pressure decay</span>
+      <div class="panel-head"><span>Predictive Pressure Decay</span>
         <span class="panel-side">trend-based estimate — advisory</span></div>
       <div id="forecast-body" class="forecast-idle">no active leak — forecasting armed</div>
     </div>
 
     <div class="panel" id="log-panel">
-      <div class="panel-head"><span>Event log</span>
+      <div class="panel-head"><span>Event Log</span>
         <span class="panel-side" id="log-count"></span></div>
       <div id="event-log"></div>
     </div>
 
-    <button id="report-btn" class="report-btn" disabled>⬇ Incident report (PDF)</button>
+    <button id="report-btn" class="report-btn" disabled>⬇ Incident Report (PDF)</button>
     <a class="report-alt" href="/api/report" target="_blank">HTML version</a>
   </section>
 </main>
